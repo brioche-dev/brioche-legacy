@@ -1,14 +1,18 @@
-use std::io::{self, Read as _};
+use std::path;
+use std::fs;
 use serde_json;
 use ducc;
 use ducc_serde;
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+struct Opt {
+    recipe: path::PathBuf,
+}
 
 fn main() {
-    let mut js = String::new();
-
-    let stdin = io::stdin();
-    let mut stdin = stdin.lock();
-    stdin.read_to_string(&mut js).expect("Failed to read JS from stdin");
+    let opt = Opt::from_args();
+    let js = fs::read_to_string(&opt.recipe).expect("Failed to read JS file");
 
     let ducc = ducc::Ducc::new();
     let result: ducc::Value = ducc.exec(
