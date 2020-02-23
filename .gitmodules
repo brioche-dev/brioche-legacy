@@ -1,0 +1,3 @@
+[submodule "vendor/ducc"]
+	path = vendor/ducc
+	url = https://github.com/brioche-dev/ducc.git
