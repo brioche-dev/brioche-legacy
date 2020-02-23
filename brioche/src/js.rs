@@ -71,9 +71,6 @@ impl JsExec {
 
 #[derive(Debug, Error)]
 pub enum JsError {
-    #[error(display = "IO error: {}", _0)]
-    IoError(#[cause] std::io::Error),
-
     #[error(display = "Duktape error: {}", _0)]
-    DuktapeError(#[cause] ducc::Error),
+    DuktapeError(#[error(cause)] ducc::Error),
 }

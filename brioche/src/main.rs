@@ -39,11 +39,11 @@ fn run(opt: Opt) -> Result<(), BriocheError> {
 #[derive(Debug, Error)]
 enum BriocheError {
     #[error(display = "IO error: {}", _0)]
-    IoError(#[cause] std::io::Error),
+    IoError(#[error(cause)] std::io::Error),
 
     #[error(display = "JS error: {}", _0)]
-    JsError(#[cause] js::JsError),
+    JsError(#[error(cause)] js::JsError),
 
     #[error(display = "Error getting module as a JSON value: {}", error)]
-    JsModuleToJsonError { error: ducc::Error },
+    JsModuleToJsonError { #[error(cause, no_from)] error: ducc::Error },
 }
