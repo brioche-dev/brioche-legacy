@@ -3,6 +3,10 @@ name = "brioche"
 version = "0.1.0"
 authors = ["Kyle Lacy <kylelacy+git@pm.me>"]
 edition = "2018"
+description = "A practical package manager and build tool"
+repository = "https://github.com/brioche-dev/brioche"
+license = "MIT"
+readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
