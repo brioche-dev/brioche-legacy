@@ -1,6 +1,6 @@
 [package]
 name = "brioche"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Kyle Lacy <kylelacy+git@pm.me>"]
 edition = "2018"
 description = "A practical package manager and build tool"

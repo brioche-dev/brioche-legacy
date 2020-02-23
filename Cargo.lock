@@ -60,7 +60,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "brioche"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ducc 0.1.2",
  "ducc-serde 0.1.0",
