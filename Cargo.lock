@@ -62,12 +62,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "brioche"
 version = "0.0.0"
 dependencies = [
- "ducc 0.1.2",
- "ducc-serde 0.1.0",
+ "brioche-ducc 0.1.2-brioche",
+ "brioche-ducc-serde 0.1.2-brioche",
  "err-derive 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "brioche-ducc"
+version = "0.1.2-brioche"
+dependencies = [
+ "brioche-ducc-sys 0.1.2-brioche",
+ "cesu8 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "brioche-ducc-serde"
+version = "0.1.2-brioche"
+dependencies = [
+ "brioche-ducc 0.1.2-brioche",
+ "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "brioche-ducc-sys"
+version = "0.1.2-brioche"
+dependencies = [
+ "bindgen 0.36.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.50 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -115,30 +139,6 @@ dependencies = [
  "textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-width 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "vec_map 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "ducc"
-version = "0.1.2"
-dependencies = [
- "cesu8 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ducc-sys 0.1.2",
-]
-
-[[package]]
-name = "ducc-serde"
-version = "0.1.0"
-dependencies = [
- "ducc 0.1.2",
- "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "ducc-sys"
-version = "0.1.2"
-dependencies = [
- "bindgen 0.36.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cc 1.0.50 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

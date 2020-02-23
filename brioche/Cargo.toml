@@ -11,9 +11,9 @@ readme = "../README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ducc = { path = "../vendor/ducc/ducc" }
+ducc = { version = "0.1.2-brioche", path = "../vendor/ducc/ducc", package = "brioche-ducc" }
+ducc-serde = { version = "0.1.2-brioche", path = "../vendor/ducc/ducc-serde", package = "brioche-ducc-serde" }
 serde = { version = "1.0.101", features = ["derive"] }
 serde_json = "1.0.41"
-ducc-serde = { path = "../vendor/ducc/ducc-serde" }
 structopt = "0.3.3"
 err-derive = "0.2.2"
