@@ -1,10 +1,4 @@
-[package]
-name = "brioche"
-version = "0.0.1"
-authors = ["Kyle Lacy <cargo@kyle.space>"]
-edition = "2021"
-description = "A practical package manager and build tool"
-repository = "https://github.com/brioche-dev/brioche"
-license = "MIT"
-
-[dependencies]
+[workspace]
+members = [
+    "crates/brioche"
+]
