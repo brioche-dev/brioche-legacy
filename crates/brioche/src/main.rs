@@ -79,6 +79,27 @@ async fn run() -> anyhow::Result<()> {
         &unshare::Namespace::Pid,
         &unshare::Namespace::User,
     ]);
+
+    let current_uid = nix::unistd::Uid::current().as_raw();
+    let current_gid = nix::unistd::Gid::current().as_raw();
+    let newuidmap = which::which("newuidmap")?;
+    let newgidmap = which::which("newgidmap")?;
+    command.set_id_map_commands(&newuidmap, &newgidmap);
+    command.set_id_maps(
+        vec![unshare::UidMap {
+            outside_uid: current_uid,
+            inside_uid: 0,
+            count: 1,
+        }],
+        vec![unshare::GidMap {
+            outside_gid: current_gid,
+            inside_gid: 0,
+            count: 1,
+        }],
+    );
+    command.uid(0);
+    command.gid(0);
+
     let mut child = command
         .spawn()
         .map_err(|error| anyhow::anyhow!("failed to spawn child process: {}", error))?;
