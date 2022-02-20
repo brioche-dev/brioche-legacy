@@ -11,3 +11,4 @@ license = "MIT"
 anyhow = "1.0.54"
 brioche-common = { path = "../brioche-common" }
 structopt = "0.3.26"
+tokio = { version = "1.17.0", features = ["full"] }
