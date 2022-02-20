@@ -77,8 +77,16 @@ name = "brioche"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "rquickjs",
+ "brioche-common",
  "structopt",
+]
+
+[[package]]
+name = "brioche-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rquickjs",
 ]
 
 [[package]]

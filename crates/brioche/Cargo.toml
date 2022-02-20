@@ -9,5 +9,5 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.54"
-rquickjs = { version = "0.1.4", features = ["bindgen", "loader", "macro"] }
+brioche-common = { path = "../brioche-common" }
 structopt = "0.3.26"
