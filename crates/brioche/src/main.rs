@@ -69,6 +69,36 @@ async fn run() -> anyhow::Result<()> {
         alpine_root_dir.display()
     );
 
+    let mut command = unshare::Command::new("/bin/sh");
+    command.reset_fds();
+    command.env_clear();
+    command.chroot_dir(alpine_root_dir);
+    command.unshare([
+        &unshare::Namespace::Ipc,
+        &unshare::Namespace::Mount,
+        &unshare::Namespace::Pid,
+        &unshare::Namespace::User,
+    ]);
+    let mut child = command
+        .spawn()
+        .map_err(|error| anyhow::anyhow!("failed to spawn child process: {}", error))?;
+
+    let child_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+        let exit_status = child.wait()?;
+
+        match exit_status {
+            unshare::ExitStatus::Exited(0) => Ok(()),
+            unshare::ExitStatus::Exited(exit_code) => {
+                anyhow::bail!("process exited with code {}", exit_code);
+            }
+            unshare::ExitStatus::Signaled(signal, _) => {
+                anyhow::bail!("process exited with signal {}", signal.as_str());
+            }
+        }
+    });
+
+    let () = child_task.await??;
+
     Ok(())
 }
 
