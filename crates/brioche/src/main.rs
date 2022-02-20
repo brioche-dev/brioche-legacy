@@ -24,7 +24,7 @@ async fn run() -> anyhow::Result<()> {
 
     let Opt::Build { path } = opt;
 
-    let recipe = brioche_common::eval_recipe(path)?;
+    let recipe = brioche_common::eval_recipe(path).await?;
 
     println!("{:#?}", recipe);
 

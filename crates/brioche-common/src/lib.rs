@@ -1,11 +1,13 @@
-use std::{collections::HashMap, fs::File, io::Read as _, path::Path};
+use std::{collections::HashMap, path::Path};
 
-pub fn eval_recipe(path: impl AsRef<Path>) -> anyhow::Result<RecipeDefinition> {
+use tokio::{fs::File, io::AsyncReadExt as _};
+
+pub async fn eval_recipe(path: impl AsRef<Path>) -> anyhow::Result<RecipeDefinition> {
     let path = path.as_ref();
     let recipe_path = path.join("brioche.js");
-    let mut recipe_file = File::open(&recipe_path)?;
+    let mut recipe_file = File::open(&recipe_path).await?;
     let mut recipe_contents = vec![];
-    recipe_file.read_to_end(&mut recipe_contents)?;
+    recipe_file.read_to_end(&mut recipe_contents).await?;
 
     let runtime = rquickjs::Runtime::new()?;
     let context = rquickjs::Context::full(&runtime)?;

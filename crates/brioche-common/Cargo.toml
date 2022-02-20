@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.54"
 rquickjs = { version = "0.1.4", features = ["bindgen", "loader", "macro"] }
+tokio = { version = "1.17.0", features = ["full"] }
