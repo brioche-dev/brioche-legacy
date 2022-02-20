@@ -140,6 +140,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hex-literal",
+ "nix 0.23.1",
  "reqwest",
  "sha2",
  "structopt",
@@ -147,6 +148,7 @@ dependencies = [
  "tokio-tar",
  "unshare",
  "url",
+ "which",
 ]
 
 [[package]]
@@ -799,6 +801,19 @@ name = "nix"
 version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5e06129fb611568ef4e868c14b326274959aa70ff7776e9d55323531c374945"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
 dependencies = [
  "bitflags",
  "cc",
@@ -1509,7 +1524,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ceda295552a1eda89f8a748237654ad76b9c87e383fc07af5c4e423eb8e7b9b"
 dependencies = [
  "libc",
- "nix",
+ "nix 0.20.2",
 ]
 
 [[package]]
