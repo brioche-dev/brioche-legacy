@@ -10,7 +10,7 @@ use sha2::Digest as _;
 use structopt::StructOpt;
 use tokio::{
     fs,
-    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _},
+    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
 };
 use url::Url;
 
@@ -46,13 +46,28 @@ async fn run() -> anyhow::Result<()> {
     let download_dir = temp_dir.join("downloads");
     fs::create_dir_all(&download_dir).await?;
 
-    download(
+    let alpine_tar_gz = download(
         &download_dir,
         "https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.0-x86_64.tar.gz".parse()?,
         &hex!("ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2"),
     ).await?;
+    let alpine_tar_gz = BufReader::new(alpine_tar_gz);
 
-    println!("Downloaded Alpine minirootfs");
+    let roots_dir = temp_dir.join("roots");
+    fs::create_dir_all(&roots_dir).await?;
+    let alpine_tar = async_compression::tokio::bufread::GzipDecoder::new(alpine_tar_gz);
+
+    let alpine_root_dir = roots_dir.join("alpine-3.15");
+    let _ = fs::remove_dir_all(&alpine_root_dir).await;
+    fs::create_dir(&alpine_root_dir).await?;
+
+    let mut alpine_tar = tokio_tar::Archive::new(alpine_tar);
+    alpine_tar.unpack(&alpine_root_dir).await?;
+
+    println!(
+        "Unzipped Alpine minirootfs to {}",
+        alpine_root_dir.display()
+    );
 
     Ok(())
 }
