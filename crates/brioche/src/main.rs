@@ -7,8 +7,9 @@ enum Opt {
     Build { path: PathBuf },
 }
 
-fn main() {
-    let result = run();
+#[tokio::main]
+async fn main() {
+    let result = run().await;
     match result {
         Ok(()) => {}
         Err(error) => {
@@ -18,7 +19,7 @@ fn main() {
     }
 }
 
-fn run() -> anyhow::Result<()> {
+async fn run() -> anyhow::Result<()> {
     let opt = Opt::from_args();
 
     let Opt::Build { path } = opt;
