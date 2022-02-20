@@ -8,3 +8,5 @@ repository = "https://github.com/brioche-dev/brioche"
 license = "MIT"
 
 [dependencies]
+anyhow = "1.0.54"
+structopt = "0.3.26"
