@@ -21,6 +21,9 @@ sha2 = "0.10.2"
 structopt = "0.3.26"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-tar = "0.3.0"
+tokio-util = { version = "0.7.0", features = ["io"] }
 unshare = { git = "https://github.com/brioche-dev/unshare.git" }
 url = "2.2.2"
 which = "4.2.4"
+
+[features]
