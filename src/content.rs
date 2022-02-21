@@ -1,68 +1,68 @@
 use futures_util::StreamExt as _;
 use sha2::Digest as _;
-use std::{io::SeekFrom, path::Path};
+use std::io::SeekFrom;
 use tokio::{
     fs,
-    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _},
+    io::{AsyncSeekExt as _, AsyncWriteExt as _},
 };
 use url::Url;
+use uuid::Uuid;
 
-pub async fn download(
-    download_dir: impl AsRef<Path>,
-    url: Url,
-    sha_hash: &[u8; 32],
-) -> anyhow::Result<fs::File> {
-    let download_dir = download_dir.as_ref();
-    let download_path = download_dir.join(hex::encode(&sha_hash));
+use crate::state::State;
 
-    let mut file = fs::OpenOptions::new()
+pub async fn download(state: &State, url: Url, sha_hash: &[u8; 32]) -> anyhow::Result<fs::File> {
+    let final_file_path = state.downloads_dir.join(hex::encode(&sha_hash));
+    let final_file = fs::File::open(&final_file_path).await;
+    if let Ok(file) = final_file {
+        return Ok(file);
+    };
+
+    let download_id = Uuid::new_v4();
+    let temp_file_path = state.temp_downloads_dir.join(download_id.to_string());
+    let mut download_file = fs::OpenOptions::new()
         .read(true)
         .append(true)
-        .create(true)
-        .open(&download_path)
+        .create_new(true)
+        .open(&temp_file_path)
         .await?;
 
+    let response = reqwest::get(url.clone()).await?;
+    dbg!(response.error_for_status_ref())?;
     let mut file_hash = sha2::Sha256::new();
-    let metadata = file.metadata().await?;
-    if metadata.len() == 0 {
-        let response = reqwest::get(url).await?;
-        response.error_for_status_ref()?;
 
-        let mut response_body_stream = response.bytes_stream();
-        while let Some(chunk) = response_body_stream.next().await {
-            let chunk = chunk?;
-            file.write_all(&chunk).await?;
-            file_hash.update(&chunk);
-        }
-
-        println!("Downloaded file {}", download_path.display());
-    } else {
-        file.seek(SeekFrom::Start(0)).await?;
-
-        let mut buf = [0u8; 4096];
-        loop {
-            let len = file.read(&mut buf).await?;
-            if len == 0 {
-                break;
-            }
-
-            let buf = &buf[0..len];
-            file_hash.update(buf);
-        }
-
-        println!("Read file {}", download_path.display());
+    let mut response_body_stream = response.bytes_stream();
+    while let Some(chunk) = response_body_stream.next().await {
+        let chunk = chunk?;
+        download_file.write_all(&chunk).await?;
+        file_hash.update(&chunk);
     }
 
     let file_hash = file_hash.finalize();
-    if &*file_hash != &*sha_hash {
+    if &*file_hash == &*sha_hash {
+        let rename_result = fs::rename(&temp_file_path, &final_file_path).await;
+        match rename_result {
+            Ok(()) => {
+                println!("Downloaded URL {} -> {}", url, final_file_path.display());
+            }
+            Err(error) => {
+                eprintln!(
+                    "Downloaded URL {} -> {} (failed to rename: {})",
+                    url,
+                    temp_file_path.display(),
+                    error
+                );
+            }
+        }
+    } else {
         anyhow::bail!(
-            "File hash did not match (expected {}, got {})",
+            "File hash did not match for {} (expected {}, got {})",
+            url,
             hex::encode(sha_hash),
             hex::encode(file_hash),
         );
     }
 
-    file.seek(SeekFrom::Start(0)).await?;
+    download_file.seek(SeekFrom::Start(0)).await?;
 
-    Ok(file)
+    Ok(download_file)
 }
