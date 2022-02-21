@@ -25,6 +25,7 @@ tokio-tar = "0.3.0"
 tokio-util = { version = "0.7.0", features = ["io"] }
 unshare = { git = "https://github.com/brioche-dev/unshare.git" }
 url = "2.2.2"
+uuid = { version = "0.8.2", features = ["v4"] }
 which = "4.2.4"
 
 [features]
