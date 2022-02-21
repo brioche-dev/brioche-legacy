@@ -118,6 +118,7 @@ async fn run() -> anyhow::Result<()> {
     command.reset_fds();
     command.env_clear();
     command.chroot_dir(&overlay_dir);
+    command.current_dir("/usr/src");
     command.unshare([
         &unshare::Namespace::Ipc,
         &unshare::Namespace::Mount,
