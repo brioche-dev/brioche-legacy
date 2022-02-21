@@ -120,6 +120,13 @@ async fn run() -> anyhow::Result<()> {
     let mut command = unshare::Command::new("/bin/sh");
     command.reset_fds();
     command.env_clear();
+    command.envs([
+        (
+            "PATH",
+            "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        ),
+        ("HOME", "/root"),
+    ]);
     command.chroot_dir(&overlay_dir);
     command.current_dir("/usr/src");
     command.unshare([
