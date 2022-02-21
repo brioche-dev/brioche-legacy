@@ -135,6 +135,7 @@ async fn run() -> anyhow::Result<()> {
         &unshare::Namespace::Pid,
         &unshare::Namespace::User,
     ]);
+    command.stdin(unshare::Stdio::Pipe);
 
     let current_uid = nix::unistd::Uid::current().as_raw();
     let current_gid = nix::unistd::Gid::current().as_raw();
@@ -224,6 +225,8 @@ async fn run() -> anyhow::Result<()> {
         .spawn()
         .map_err(|error| anyhow::anyhow!("failed to spawn child process: {}", error))?;
 
+    let child_stdin = child.stdin.take();
+
     let child_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
         let exit_status = child.wait()?;
 
@@ -238,7 +241,25 @@ async fn run() -> anyhow::Result<()> {
         }
     });
 
-    let () = child_task.await??;
+    let child_stdin_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+        use std::io::Write as _;
+
+        let mut child_stdin = match child_stdin {
+            Some(child_stdin) => child_stdin,
+            None => {
+                return Ok(());
+            }
+        };
+
+        write!(child_stdin, "{}", recipe.build.script)?;
+
+        Ok(())
+    });
+
+    let (child_task, child_stdin_task) = tokio::try_join!(child_task, child_stdin_task)?;
+
+    let () = child_task?;
+    let () = child_stdin_task?;
 
     Ok(())
 }
