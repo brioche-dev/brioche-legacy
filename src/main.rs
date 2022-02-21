@@ -7,6 +7,7 @@ use tokio::{fs, io::BufReader};
 
 mod content;
 mod recipe;
+mod state;
 
 #[derive(Debug, clap::Parser)]
 enum Args {
@@ -29,6 +30,8 @@ async fn run() -> anyhow::Result<()> {
     let opt = Args::parse();
 
     let Args::Build { path } = opt;
+
+    let state = state::State::new().await?;
 
     let recipe = recipe::eval_recipe(path).await?;
 
