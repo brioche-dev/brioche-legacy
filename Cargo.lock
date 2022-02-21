@@ -1557,7 +1557,7 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 [[package]]
 name = "unshare"
 version = "0.7.0"
-source = "git+https://github.com/brioche-dev/unshare.git#cb4b151492c4220e370b434c2acddff765d5d9dd"
+source = "git+https://github.com/brioche-dev/unshare.git#8da438e81ecc8bda746069d5d2bdf77a9b8b10a9"
 dependencies = [
  "libc",
  "nix 0.20.2",
