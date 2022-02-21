@@ -54,11 +54,11 @@ async fn run() -> anyhow::Result<()> {
     let alpine_tar_gz = BufReader::new(alpine_tar_gz);
 
     let roots_dir = temp_dir.join("roots");
-    fs::create_dir_all(&roots_dir).await?;
+    let _ = fs::remove_dir_all(&roots_dir).await;
+    fs::create_dir(&roots_dir).await?;
     let alpine_tar = async_compression::tokio::bufread::GzipDecoder::new(alpine_tar_gz);
 
     let alpine_root_dir = roots_dir.join("alpine-3.15");
-    let _ = fs::remove_dir_all(&alpine_root_dir).await;
     fs::create_dir(&alpine_root_dir).await?;
 
     let mut alpine_tar = tokio_tar::Archive::new(alpine_tar);
@@ -69,10 +69,40 @@ async fn run() -> anyhow::Result<()> {
         alpine_root_dir.display()
     );
 
+    let overlay_system = roots_dir.join("overlay-system");
+    fs::create_dir(&overlay_system).await?;
+
+    let overlay_system_proc = overlay_system.join("proc");
+    fs::create_dir(&overlay_system_proc).await?;
+
+    let overlay_system_dev = overlay_system.join("dev");
+    fs::create_dir(&overlay_system_dev).await?;
+
+    let overlay_system_sys = overlay_system.join("sys");
+    fs::create_dir(&overlay_system_sys).await?;
+
+    let overlay_system_etc = overlay_system.join("etc");
+    fs::create_dir(&overlay_system_etc).await?;
+
+    fs::copy(
+        "/etc/resolv.conf",
+        overlay_system.join("etc").join("resolv.conf"),
+    )
+    .await?;
+
+    let overlay_workdir = roots_dir.join("overlay-workdir");
+    fs::create_dir(&overlay_workdir).await?;
+
+    let output_dir = roots_dir.join("output");
+    fs::create_dir(&output_dir).await?;
+
+    let overlay_dir = roots_dir.join("overlay");
+    fs::create_dir(&overlay_dir).await?;
+
     let mut command = unshare::Command::new("/bin/sh");
     command.reset_fds();
     command.env_clear();
-    command.chroot_dir(alpine_root_dir);
+    command.chroot_dir(&overlay_dir);
     command.unshare([
         &unshare::Namespace::Ipc,
         &unshare::Namespace::Mount,
@@ -99,6 +129,73 @@ async fn run() -> anyhow::Result<()> {
     );
     command.uid(0);
     command.gid(0);
+
+    command.before_chroot(move || {
+        let overlay_system_proc = overlay_system_proc.clone();
+        let overlay_system_sys = overlay_system_sys.clone();
+        let overlay_system_dev = overlay_system_dev.clone();
+        let alpine_root_dir = alpine_root_dir.clone();
+        let overlay_system = overlay_system.clone();
+        let output_dir = output_dir.clone();
+        let overlay_workdir = overlay_workdir.clone();
+        let overlay_dir = overlay_dir.clone();
+        let setup_env = move || -> anyhow::Result<()> {
+            libmount::BindMount::new("/proc", overlay_system_proc)
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
+            libmount::BindMount::new("/sys", overlay_system_sys)
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
+            libmount::BindMount::new("/dev", overlay_system_dev)
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
+
+            // NOTE: This doesn't seem to work in WSL, possibly because the
+            // WSL kernel doesn't have the patch to enable overlayfs in user
+            // namespaces.
+            // libmount::Overlay::writable(
+            //     [&*alpine_root_dir, &*overlay_system].into_iter(),
+            //     &output_dir,
+            //     &overlay_workdir,
+            //     &overlay_dir,
+            // )
+            // .mount()
+            // .map_err(|error| anyhow::anyhow!("{}", error))?;
+
+            let mut overlayfs_command = std::process::Command::new("fuse-overlayfs");
+            overlayfs_command.arg("-o").arg(format!(
+                "lowerdir={}:{}",
+                alpine_root_dir.display(),
+                overlay_system.display()
+            ));
+            overlayfs_command
+                .arg(format!("-o"))
+                .arg(format!("upperdir={}", output_dir.display()));
+            overlayfs_command
+                .arg(format!("-o"))
+                .arg(format!("workdir={}", overlay_workdir.display()));
+            overlayfs_command.arg(overlay_dir);
+
+            let overlayfs_status = overlayfs_command.status()?;
+            if !overlayfs_status.success() {
+                anyhow::bail!(
+                    "mounting overlayfs failed with exit code {}",
+                    overlayfs_status
+                );
+            }
+
+            Ok(())
+        };
+
+        let result = setup_env();
+        match result {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                eprintln!("failed to set up system mounts: {}", error);
+                Err(std::io::Error::new(std::io::ErrorKind::Other, error))
+            }
+        }
+    });
 
     let mut child = command
         .spawn()
