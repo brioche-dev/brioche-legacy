@@ -12,20 +12,23 @@ function sh(template, ...args) {
     };
 }
 
-const VERSION = "2.12";
+const VERSION = "5.40";
 
 export const recipe = {
     options: {},
     definition: () => ({
-        name: "hello",
+        name: "file",
         version: VERSION,
         source: {
-            git: "https://git.savannah.gnu.org/git/hello.git",
-            ref: `v${VERSION}`,
+            // git: "https://github.com/file/file",
+            // ref: `FILE${VERSION.replace(".", "_")}`,
+            tarball: `https://astron.com/pub/file/file-${VERSION}.tar.gz`,
         },
         dependencies: {},
         build: sh`
-            ./bootstrap
+            apk add build-base
+            cd ./file-*
+            ./configure
             make
             make install
         `,
