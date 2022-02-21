@@ -136,13 +136,13 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-compression",
- "brioche-common",
  "futures-util",
  "hex",
  "hex-literal",
  "libmount",
  "nix 0.23.1",
  "reqwest",
+ "rquickjs",
  "sha2",
  "structopt",
  "tokio 1.17.0",
@@ -151,15 +151,6 @@ dependencies = [
  "unshare",
  "url",
  "which",
-]
-
-[[package]]
-name = "brioche-common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "rquickjs",
- "tokio 1.17.0",
 ]
 
 [[package]]

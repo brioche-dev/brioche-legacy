@@ -4,9 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use brioche_common::RecipeSource;
 use futures_util::{StreamExt as _, TryStreamExt};
 use hex_literal::hex;
+use recipe::RecipeSource;
 use sha2::Digest as _;
 use structopt::StructOpt;
 use tokio::{
@@ -14,6 +14,8 @@ use tokio::{
     io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
 };
 use url::Url;
+
+mod recipe;
 
 #[derive(Debug, StructOpt)]
 enum Opt {
@@ -37,7 +39,7 @@ async fn run() -> anyhow::Result<()> {
 
     let Opt::Build { path } = opt;
 
-    let recipe = brioche_common::eval_recipe(path).await?;
+    let recipe = recipe::eval_recipe(path).await?;
 
     println!("{:#?}", recipe);
 
