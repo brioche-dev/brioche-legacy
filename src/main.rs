@@ -4,11 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use clap::Parser as _;
 use futures_util::{StreamExt as _, TryStreamExt};
 use hex_literal::hex;
 use recipe::RecipeSource;
 use sha2::Digest as _;
-use structopt::StructOpt;
 use tokio::{
     fs,
     io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
@@ -17,8 +17,8 @@ use url::Url;
 
 mod recipe;
 
-#[derive(Debug, StructOpt)]
-enum Opt {
+#[derive(Debug, clap::Parser)]
+enum Args {
     Build { path: PathBuf },
 }
 
@@ -35,9 +35,9 @@ async fn main() {
 }
 
 async fn run() -> anyhow::Result<()> {
-    let opt = Opt::from_args();
+    let opt = Args::parse();
 
-    let Opt::Build { path } = opt;
+    let Args::Build { path } = opt;
 
     let recipe = recipe::eval_recipe(path).await?;
 
