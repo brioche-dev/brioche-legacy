@@ -73,15 +73,6 @@ async fn run() -> anyhow::Result<()> {
     let overlay_system = roots_dir.join("overlay-system");
     fs::create_dir(&overlay_system).await?;
 
-    let overlay_system_proc = overlay_system.join("proc");
-    fs::create_dir(&overlay_system_proc).await?;
-
-    let overlay_system_dev = overlay_system.join("dev");
-    fs::create_dir(&overlay_system_dev).await?;
-
-    let overlay_system_sys = overlay_system.join("sys");
-    fs::create_dir(&overlay_system_sys).await?;
-
     let overlay_system_etc = overlay_system.join("etc");
     fs::create_dir(&overlay_system_etc).await?;
 
@@ -147,25 +138,12 @@ async fn run() -> anyhow::Result<()> {
     command.gid(0);
 
     command.before_chroot(move || {
-        let overlay_system_proc = overlay_system_proc.clone();
-        let overlay_system_sys = overlay_system_sys.clone();
-        let overlay_system_dev = overlay_system_dev.clone();
         let alpine_root_dir = alpine_root_dir.clone();
         let overlay_system = overlay_system.clone();
         let output_dir = output_dir.clone();
         let overlay_workdir = overlay_workdir.clone();
         let overlay_dir = overlay_dir.clone();
         let setup_env = move || -> anyhow::Result<()> {
-            libmount::BindMount::new("/proc", overlay_system_proc)
-                .mount()
-                .map_err(|error| anyhow::anyhow!("{}", error))?;
-            libmount::BindMount::new("/sys", overlay_system_sys)
-                .mount()
-                .map_err(|error| anyhow::anyhow!("{}", error))?;
-            libmount::BindMount::new("/dev", overlay_system_dev)
-                .mount()
-                .map_err(|error| anyhow::anyhow!("{}", error))?;
-
             // NOTE: This doesn't seem to work in WSL, possibly because the
             // WSL kernel doesn't have the patch to enable overlayfs in user
             // namespaces.
@@ -185,12 +163,12 @@ async fn run() -> anyhow::Result<()> {
                 overlay_system.display()
             ));
             overlayfs_command
-                .arg(format!("-o"))
+                .arg("-o")
                 .arg(format!("upperdir={}", output_dir.display()));
             overlayfs_command
-                .arg(format!("-o"))
+                .arg("-o")
                 .arg(format!("workdir={}", overlay_workdir.display()));
-            overlayfs_command.arg(overlay_dir);
+            overlayfs_command.arg(&overlay_dir);
 
             let overlayfs_status = overlayfs_command.status()?;
             if !overlayfs_status.success() {
@@ -199,6 +177,16 @@ async fn run() -> anyhow::Result<()> {
                     overlayfs_status
                 );
             }
+
+            libmount::BindMount::new("/proc", overlay_dir.join("proc"))
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
+            libmount::BindMount::new("/sys", overlay_dir.join("sys"))
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
+            libmount::BindMount::new("/dev", overlay_dir.join("dev"))
+                .mount()
+                .map_err(|error| anyhow::anyhow!("{}", error))?;
 
             Ok(())
         };
