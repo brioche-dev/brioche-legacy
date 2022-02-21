@@ -20,7 +20,7 @@ export const recipe = {
         name: "hello",
         version: VERSION,
         source: {
-            git: "https://git.savannah.gnu.org/cgit/hello.git",
+            git: "https://git.savannah.gnu.org/git/hello.git",
             ref: `v${VERSION}`,
         },
         dependencies: {},
