@@ -47,6 +47,9 @@ pub enum RecipeSource {
         #[quickjs(rename = "ref")]
         git_ref: String,
     },
+    Tarball {
+        tarball: String,
+    },
 }
 
 #[derive(Debug, rquickjs::FromJs)]

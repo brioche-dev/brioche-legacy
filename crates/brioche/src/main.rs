@@ -5,7 +5,7 @@ use std::{
 };
 
 use brioche_common::RecipeSource;
-use futures_util::StreamExt as _;
+use futures_util::{StreamExt as _, TryStreamExt};
 use hex_literal::hex;
 use sha2::Digest as _;
 use structopt::StructOpt;
@@ -93,6 +93,18 @@ async fn run() -> anyhow::Result<()> {
             if !git_result.success() {
                 anyhow::bail!("git clone failed with exit code {}", git_result);
             }
+        }
+        RecipeSource::Tarball { tarball } => {
+            let response = reqwest::get(&*tarball).await?;
+            let tar_gz_bytes = response
+                .bytes_stream()
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error));
+            let tar_gz_bytes = tokio_util::io::StreamReader::new(tar_gz_bytes);
+
+            let tar_bytes = async_compression::tokio::bufread::GzipDecoder::new(tar_gz_bytes);
+
+            let mut tar = tokio_tar::Archive::new(tar_bytes);
+            tar.unpack(&source_dir).await?;
         }
     }
 
