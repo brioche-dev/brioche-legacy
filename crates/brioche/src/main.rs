@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use brioche_common::RecipeSource;
 use futures_util::StreamExt as _;
 use hex_literal::hex;
 use sha2::Digest as _;
@@ -84,11 +85,25 @@ async fn run() -> anyhow::Result<()> {
     let overlay_system_etc = overlay_system.join("etc");
     fs::create_dir(&overlay_system_etc).await?;
 
-    fs::copy(
-        "/etc/resolv.conf",
-        overlay_system.join("etc").join("resolv.conf"),
-    )
-    .await?;
+    fs::copy("/etc/resolv.conf", overlay_system_etc.join("resolv.conf")).await?;
+
+    let source_dir = overlay_system.join("usr").join("src");
+    fs::create_dir_all(&source_dir).await?;
+
+    match &recipe.source {
+        RecipeSource::Git { git: repo, git_ref } => {
+            let mut git_command = tokio::process::Command::new("git");
+            git_command.arg("clone");
+            git_command.arg("--branch").arg(git_ref);
+            git_command.arg("--depth").arg("1");
+            git_command.arg("--").arg(repo).arg(&source_dir);
+            let git_result = git_command.status().await?;
+
+            if !git_result.success() {
+                anyhow::bail!("git clone failed with exit code {}", git_result);
+            }
+        }
+    }
 
     let overlay_workdir = roots_dir.join("overlay-workdir");
     fs::create_dir(&overlay_workdir).await?;
