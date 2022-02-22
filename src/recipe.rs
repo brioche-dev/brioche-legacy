@@ -25,12 +25,25 @@ pub async fn eval_recipe(path: impl AsRef<Path>) -> anyhow::Result<RecipeDefinit
     Ok(recipe_def)
 }
 
+pub fn recipe_definition_hash(recipe: &RecipeDefinition) -> anyhow::Result<[u8; 32]> {
+    use sha2::Digest as _;
+
+    let cjson_bytes = cjson::to_vec(&recipe)
+        .map_err(|error| anyhow::anyhow!("faiiled to canonicalize json: {:?}", error))?;
+
+    let mut cjson_hash = sha2::Sha256::new();
+    cjson_hash.update(&cjson_bytes);
+    let cjson_hash = cjson_hash.finalize();
+
+    Ok(cjson_hash.try_into().expect("could not convert hash"))
+}
+
 #[derive(Debug, rquickjs::FromJs)]
 struct Recipe<'js> {
     definition: rquickjs::Function<'js>,
 }
 
-#[derive(Debug, rquickjs::FromJs)]
+#[derive(Debug, serde::Serialize, rquickjs::FromJs)]
 pub struct RecipeDefinition {
     pub name: String,
     pub version: String,
@@ -39,12 +52,14 @@ pub struct RecipeDefinition {
     pub build: RecipeBuildScript,
 }
 
-#[derive(Debug, rquickjs::FromJs)]
+#[derive(Debug, serde::Serialize, rquickjs::FromJs)]
 #[quickjs(untagged)]
+#[serde(untagged)]
 pub enum RecipeSource {
     Git {
         git: String,
         #[quickjs(rename = "ref")]
+        #[serde(rename = "ref")]
         git_ref: String,
     },
     Tarball {
@@ -52,8 +67,9 @@ pub enum RecipeSource {
     },
 }
 
-#[derive(Debug, rquickjs::FromJs)]
+#[derive(Debug, serde::Serialize, rquickjs::FromJs)]
 #[quickjs(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct RecipeBuildScript {
     pub shell: String,
     pub script: String,
