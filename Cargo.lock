@@ -151,6 +151,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2",
+ "target-lexicon",
  "tokio 1.17.0",
  "tokio-tar",
  "tokio-util 0.7.0",
@@ -1438,6 +1439,12 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "target-lexicon"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7fa7e55043acb85fca6b3c01485a2eeb6b69c5d21002e273c79e465f43b7ac1"
 
 [[package]]
 name = "termcolor"
