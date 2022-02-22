@@ -8,7 +8,7 @@ use hex_literal::hex;
 use joinery::JoinableIterator;
 use tokio::{fs, io::BufReader};
 
-use crate::{content, state::State};
+use crate::state::State;
 
 pub struct BootstrapEnv {
     inputs_dir: PathBuf,
@@ -35,8 +35,7 @@ impl BootstrapEnv {
         let overlay_dir = work_dir.join("overlay");
         fs::create_dir_all(&overlay_dir).await?;
 
-        let alpine_tar_gz = content::download(
-            &state,
+        let alpine_tar_gz = state.download(
             "https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.0-x86_64.tar.gz".parse()?,
             &hex!("ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2"),
         ).await?;

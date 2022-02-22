@@ -4,7 +4,6 @@ use clap::Parser as _;
 use futures_util::TryStreamExt as _;
 
 mod bootstrap_env;
-mod content;
 mod recipe;
 mod state;
 
