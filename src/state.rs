@@ -101,7 +101,7 @@ impl State {
             .await?;
 
         let response = reqwest::get(req.url.clone()).await?;
-        dbg!(response.error_for_status_ref())?;
+        response.error_for_status_ref()?;
         let mut file_hash = sha2::Sha256::new();
 
         let mut response_body_stream = response.bytes_stream();
