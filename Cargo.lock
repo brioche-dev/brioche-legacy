@@ -141,6 +141,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hex-literal",
+ "joinery",
  "libmount",
  "nix 0.23.1",
  "reqwest",
@@ -723,6 +724,12 @@ checksum = "af25a77299a7f711a01975c35a6a424eb6862092cc2d6c72c4ed6cbc56dfc1fa"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "joinery"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72167d68f5fce3b8655487b8038691a3c9984ee769590f93f2a631f4ad64e4f5"
 
 [[package]]
 name = "js-sys"
