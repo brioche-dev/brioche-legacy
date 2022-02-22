@@ -12,6 +12,7 @@ use crate::state::State;
 
 pub struct BootstrapEnv {
     inputs_dir: PathBuf,
+    outputs_dir: PathBuf,
     source_relative_dir: PathBuf,
     chroot_config: ChrootConfig,
 }
@@ -56,13 +57,14 @@ impl BootstrapEnv {
 
         let chroot_config = ChrootConfig {
             lower_dirs: vec![alpine_root_dir, inputs_dir.clone()],
-            upper_dir: outputs_dir,
+            upper_dir: outputs_dir.clone(),
             work_dir: overlayfs_work_dir,
             target_dir: overlay_dir,
         };
 
         Ok(Self {
             inputs_dir,
+            outputs_dir,
             source_relative_dir,
             chroot_config,
         })
@@ -74,6 +76,34 @@ impl BootstrapEnv {
 
     pub fn container_source_path(&self) -> PathBuf {
         PathBuf::from("/").join(&self.source_relative_dir)
+    }
+
+    pub async fn create_recipe_prefix_path(
+        &self,
+        recipe: &crate::recipe::RecipeDefinition,
+    ) -> anyhow::Result<RecipePrefix> {
+        let recipe_hash = crate::recipe::recipe_definition_hash(&recipe)?;
+
+        let relative_path = PathBuf::new()
+            .join("home")
+            .join("brioche-dev")
+            .join(".local")
+            .join("share")
+            .join("brioche")
+            .join("recipes")
+            .join(hex::encode(&recipe_hash))
+            .join("prefix");
+        let container_path = PathBuf::from("/").join(&relative_path);
+        let host_input_path = self.inputs_dir.join(&relative_path);
+        let host_output_path = self.outputs_dir.join(&relative_path);
+
+        fs::create_dir_all(&host_input_path).await?;
+
+        Ok(RecipePrefix {
+            container_path,
+            host_input_path,
+            host_output_path,
+        })
     }
 
     pub fn spawn(&self, command: &Command) -> anyhow::Result<Child> {
@@ -166,11 +196,11 @@ impl Command {
     //     self
     // }
 
-    // pub fn env(&mut self, var: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> &mut Self {
-    //     self.env
-    //         .insert(var.as_ref().to_owned(), value.as_ref().to_owned());
-    //     self
-    // }
+    pub fn env(&mut self, var: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> &mut Self {
+        self.env
+            .insert(var.as_ref().to_owned(), value.as_ref().to_owned());
+        self
+    }
 
     pub fn current_dir(&mut self, current_dir: impl AsRef<Path>) -> &mut Self {
         self.current_dir = Some(current_dir.as_ref().to_owned());
@@ -191,6 +221,12 @@ impl Child {
         let exit_status = self.child.wait()?;
         Ok(exit_status)
     }
+}
+
+pub struct RecipePrefix {
+    pub host_input_path: PathBuf,
+    pub host_output_path: PathBuf,
+    pub container_path: PathBuf,
 }
 
 #[derive(Debug, Clone)]

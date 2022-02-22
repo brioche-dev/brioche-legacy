@@ -37,6 +37,7 @@ async fn run() -> anyhow::Result<()> {
     println!("Recipe hash: {}", hex::encode(recipe_hash));
 
     let bootstrap_env = bootstrap_env::BootstrapEnv::new(&state).await?;
+    let recipe_prefix = bootstrap_env.create_recipe_prefix_path(&recipe).await?;
 
     match &recipe.source {
         recipe::RecipeSource::Git { git: repo, git_ref } => {
