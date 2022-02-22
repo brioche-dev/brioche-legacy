@@ -181,15 +181,7 @@ impl State {
         let target_dir = temp_dir.join(unpack_id.to_string());
         fs::create_dir(&target_dir).await?;
 
-        let ContentFile {
-            ref mut file,
-            ref mut content_hash,
-            ..
-        } = archive_tar_gz;
-        let archive_tar_gz = BufReader::new(file);
-        let archive_tar = async_compression::tokio::bufread::GzipDecoder::new(archive_tar_gz);
-        let mut archive = tokio_tar::Archive::new(archive_tar);
-        archive.unpack(&target_dir).await?;
+        self.unpack_to(archive_tar_gz, &target_dir).await?;
 
         let rename_result = fs::rename(&target_dir, &unpacked_dir).await;
 
@@ -197,7 +189,7 @@ impl State {
             Ok(()) => {
                 println!(
                     "Unpacked {} -> {}",
-                    hex::encode(content_hash),
+                    hex::encode(archive_tar_gz.content_hash),
                     unpacked_dir.display()
                 );
                 Ok(unpacked_dir)
@@ -205,13 +197,26 @@ impl State {
             Err(error) => {
                 eprintln!(
                     "Unpacked {} -> {} (failed to rename: {})",
-                    hex::encode(content_hash),
+                    hex::encode(archive_tar_gz.content_hash),
                     target_dir.display(),
                     error
                 );
                 Ok(target_dir)
             }
         }
+    }
+
+    pub async fn unpack_to(
+        &self,
+        archive_tar_gz: &mut ContentFile,
+        target_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<()> {
+        let archive_tar_gz = BufReader::new(&mut archive_tar_gz.file);
+        let archive_tar = async_compression::tokio::bufread::GzipDecoder::new(archive_tar_gz);
+        let mut archive = tokio_tar::Archive::new(archive_tar);
+        archive.unpack(target_dir).await?;
+
+        Ok(())
     }
 }
 
