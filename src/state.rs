@@ -9,7 +9,7 @@ use anyhow::Context as _;
 use futures_util::StreamExt as _;
 use tokio::{
     fs,
-    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
+    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _},
     sync::RwLock,
 };
 use url::Url;
@@ -211,10 +211,24 @@ impl State {
         archive_tar_gz: &mut ContentFile,
         target_dir: impl AsRef<Path>,
     ) -> anyhow::Result<()> {
-        let archive_tar_gz = BufReader::new(&mut archive_tar_gz.file);
-        let archive_tar = async_compression::tokio::bufread::GzipDecoder::new(archive_tar_gz);
-        let mut archive = tokio_tar::Archive::new(archive_tar);
-        archive.unpack(target_dir).await?;
+        let mut tar_command = tokio::process::Command::new("tar");
+        tar_command.arg("-x");
+        tar_command.arg("-z");
+        tar_command.arg("-f").arg("-");
+        tar_command.arg("-C").arg(target_dir.as_ref());
+
+        tar_command.stdin(std::process::Stdio::piped());
+
+        let mut tar_child = tar_command.spawn()?;
+
+        if let Some(ref mut tar_stdin) = tar_child.stdin {
+            tokio::io::copy(&mut archive_tar_gz.file, tar_stdin).await?;
+        }
+
+        let tar_result = tar_child.wait().await?;
+        if !tar_result.success() {
+            anyhow::bail!("tar exited with status {}", tar_result);
+        }
 
         Ok(())
     }
