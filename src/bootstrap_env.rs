@@ -35,7 +35,9 @@ impl BootstrapEnv {
         let alpine_tar_gz_req = crate::state::ContentRequest::new("https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.0-x86_64.tar.gz".parse()?)
             .hash(hex!("ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2"));
         let mut alpine_tar_gz = state.download(&alpine_tar_gz_req).await?;
-        let alpine_root_dir = state.unpack(&mut alpine_tar_gz).await?;
+        let alpine_root_dir = state
+            .unpack(&mut alpine_tar_gz, crate::state::UnpackOpts::Reusable)
+            .await?;
 
         println!(
             "Unzipped Alpine minirootfs to {}",

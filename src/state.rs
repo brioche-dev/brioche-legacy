@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct State {
+    project_dirs: directories::ProjectDirs,
     pub downloads_dir: PathBuf,
     pub temp_downloads_dir: PathBuf,
 }
@@ -30,6 +31,7 @@ impl State {
         fs::create_dir_all(&temp_downloads_dir).await?;
 
         Ok(Self {
+            project_dirs,
             downloads_dir,
             temp_downloads_dir,
         })
@@ -55,7 +57,10 @@ impl State {
         let file_path = self.downloads_dir.join(hex::encode(&content_hash));
         let file = fs::File::open(&file_path).await.ok()?;
 
-        Some(ContentFile { file })
+        Some(ContentFile {
+            file,
+            content_hash: content_hash.clone(),
+        })
     }
 
     pub async fn download(&self, req: &ContentRequest) -> anyhow::Result<ContentFile> {
@@ -121,23 +126,75 @@ impl State {
         download_file.seek(SeekFrom::Start(0)).await?;
         Ok(ContentFile {
             file: download_file,
+            content_hash: downloaded_hash.try_into().expect("could not convert hash"),
         })
     }
 
-    pub async fn unpack(&self, archive_tar_gz: &mut ContentFile) -> anyhow::Result<PathBuf> {
-        let work_dir = self.new_temp_work_dir().await?;
+    pub async fn unpack(
+        &self,
+        archive_tar_gz: &mut ContentFile,
+        _unpack_opts: UnpackOpts,
+    ) -> anyhow::Result<PathBuf> {
+        let archive_dir = self
+            .project_dirs
+            .data_dir()
+            .join("unpack")
+            .join(hex::encode(archive_tar_gz.content_hash));
+        let temp_dir = archive_dir.join("temp");
+        let unpacked_dir = archive_dir.join("unpacked");
 
-        let archive_tar_gz = BufReader::new(&mut archive_tar_gz.file);
+        fs::create_dir_all(&archive_dir).await?;
+
+        // If the temporary dir already exists, clear it out and recreate it
+        let _ = fs::remove_dir_all(&temp_dir).await;
+
+        if unpacked_dir.exists() {
+            return Ok(unpacked_dir);
+        }
+
+        fs::create_dir(&temp_dir).await?;
+
+        let unpack_id = Uuid::new_v4();
+        let target_dir = temp_dir.join(unpack_id.to_string());
+        fs::create_dir(&target_dir).await?;
+
+        let ContentFile {
+            ref mut file,
+            ref mut content_hash,
+            ..
+        } = archive_tar_gz;
+        let archive_tar_gz = BufReader::new(file);
         let archive_tar = async_compression::tokio::bufread::GzipDecoder::new(archive_tar_gz);
         let mut archive = tokio_tar::Archive::new(archive_tar);
-        archive.unpack(&work_dir).await?;
+        archive.unpack(&target_dir).await?;
 
-        Ok(work_dir)
+        let rename_result = fs::rename(&target_dir, &unpacked_dir).await;
+
+        match rename_result {
+            Ok(()) => {
+                println!(
+                    "Unpacked {} -> {}",
+                    hex::encode(content_hash),
+                    unpacked_dir.display()
+                );
+                Ok(unpacked_dir)
+            }
+            Err(error) => {
+                eprintln!(
+                    "Unpacked {} -> {} (failed to rename: {})",
+                    hex::encode(content_hash),
+                    target_dir.display(),
+                    error
+                );
+                Ok(target_dir)
+            }
+        }
     }
 }
 
 pub struct ContentFile {
     file: tokio::fs::File,
+    content_hash: [u8; 32],
 }
 
 pub struct ContentRequest {
@@ -157,4 +214,8 @@ impl ContentRequest {
         self.content_hash = Some(sha_hash);
         self
     }
+}
+
+pub enum UnpackOpts {
+    Reusable,
 }
