@@ -28,7 +28,7 @@ export const recipe = {
         build: sh`
             apk add build-base
             cd ./file-*
-            ./configure
+            ./configure --prefix="$BRIOCHE_PREFIX"
             make
             make install
         `,
