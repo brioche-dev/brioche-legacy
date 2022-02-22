@@ -219,6 +219,25 @@ impl State {
         Ok(())
     }
 
+    pub fn get_recipe_output(
+        &self,
+        recipe: &crate::recipe::RecipeDefinition,
+    ) -> anyhow::Result<Option<PathBuf>> {
+        let recipe_hash = crate::recipe::recipe_definition_hash(recipe)?;
+        let recipe_prefix_dir = self
+            .project_dirs
+            .data_dir()
+            .join("recipes")
+            .join(hex::encode(&recipe_hash))
+            .join("prefix");
+
+        if recipe_prefix_dir.is_dir() {
+            Ok(Some(recipe_prefix_dir))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn save_recipe_output(
         &self,
         recipe: &crate::recipe::RecipeDefinition,

@@ -20,6 +20,14 @@ pub async fn get_baked_recipe(
     let recipe_hash = crate::recipe::recipe_definition_hash(&recipe)?;
     println!("Recipe hash: {}", hex::encode(recipe_hash));
 
+    if let Some(prefix_path) = state.get_recipe_output(&recipe)? {
+        println!("Recipe {} {} already baked", recipe.name, recipe.version);
+        return Ok(BakedRecipe {
+            prefix_path,
+            recipe,
+        });
+    }
+
     let bootstrap_env = crate::bootstrap_env::BootstrapEnv::new(&state).await?;
     let recipe_prefix = bootstrap_env.create_recipe_prefix_path(&recipe).await?;
 
