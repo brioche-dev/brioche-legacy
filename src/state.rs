@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use anyhow::Context as _;
 use tokio::fs;
@@ -27,5 +27,19 @@ impl State {
             downloads_dir,
             temp_downloads_dir,
         })
+    }
+
+    pub async fn new_temp_work_dir(&self) -> anyhow::Result<PathBuf> {
+        let uuid = uuid::Uuid::new_v4();
+        let temp_dir = env::temp_dir();
+        let work_dir = temp_dir
+            .join("brioche")
+            .join("work-dir")
+            .join(uuid.to_string())
+            .join("work");
+
+        fs::create_dir_all(&work_dir).await?;
+
+        Ok(work_dir)
     }
 }
