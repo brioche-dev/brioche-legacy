@@ -107,5 +107,9 @@ async fn run() -> anyhow::Result<()> {
     let () = child_task?;
     let () = child_stdin_task?;
 
+    state.persist_lockfile().await?;
+
+    println!("Persisted lockfile");
+
     Ok(())
 }

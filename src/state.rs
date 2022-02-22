@@ -1,10 +1,16 @@
-use std::{env, io::SeekFrom, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    io::SeekFrom,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context as _;
 use futures_util::StreamExt as _;
 use tokio::{
     fs,
-    io::{AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
+    io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _, BufReader},
+    sync::RwLock,
 };
 use url::Url;
 use uuid::Uuid;
@@ -12,6 +18,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct State {
     project_dirs: directories::ProjectDirs,
+    lockfile: Lockfile,
     pub downloads_dir: PathBuf,
     pub temp_downloads_dir: PathBuf,
 }
@@ -30,11 +37,20 @@ impl State {
         let temp_downloads_dir = downloads_dir.join("_temp");
         fs::create_dir_all(&temp_downloads_dir).await?;
 
+        let lockfile_path = data_dir.join("lockfile.json");
+        let lockfile = Lockfile::open(lockfile_path).await?;
+
         Ok(Self {
             project_dirs,
+            lockfile,
             downloads_dir,
             temp_downloads_dir,
         })
+    }
+
+    pub async fn persist_lockfile(&self) -> anyhow::Result<()> {
+        self.lockfile.persist().await?;
+        Ok(())
     }
 
     pub async fn new_temp_work_dir(&self) -> anyhow::Result<PathBuf> {
@@ -63,8 +79,12 @@ impl State {
         })
     }
 
-    pub async fn download(&self, req: &ContentRequest) -> anyhow::Result<ContentFile> {
+    pub async fn download(&self, mut req: ContentRequest) -> anyhow::Result<ContentFile> {
         use sha2::Digest as _;
+
+        if req.content_hash.is_none() {
+            req.content_hash = self.lockfile.request_hash(&req.url).await;
+        }
 
         let existing_file = self.get_existing_content_file(&req).await;
         if let Some(existing) = existing_file {
@@ -123,10 +143,13 @@ impl State {
             }
         }
 
+        let content_hash: [u8; 32] = downloaded_hash.try_into().expect("could not convert hash");
+        self.lockfile.set_request_hash(req.url, content_hash).await;
+
         download_file.seek(SeekFrom::Start(0)).await?;
         Ok(ContentFile {
             file: download_file,
-            content_hash: downloaded_hash.try_into().expect("could not convert hash"),
+            content_hash,
         })
     }
 
@@ -218,4 +241,62 @@ impl ContentRequest {
 
 pub enum UnpackOpts {
     Reusable,
+}
+
+#[derive(Debug)]
+struct Lockfile {
+    path: PathBuf,
+    current_value: RwLock<ContentLock>,
+}
+
+impl Lockfile {
+    async fn open(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let path = path.as_ref();
+        let file = fs::File::open(path).await;
+
+        let current_value = match file {
+            Ok(mut existing_file) => {
+                let mut file_content = vec![];
+                existing_file.read_to_end(&mut file_content).await?;
+                let value = serde_json::from_slice(&file_content)?;
+                value
+            }
+            Err(error) => {
+                eprintln!("Failed to open lockfile: {}", error);
+                ContentLock::default()
+            }
+        };
+
+        Ok(Self {
+            path: path.to_owned(),
+            current_value: RwLock::new(current_value),
+        })
+    }
+
+    async fn request_hash(&self, url: &Url) -> Option<[u8; 32]> {
+        let lock = self.current_value.read().await;
+        lock.request_hashes.get(url).cloned()
+    }
+
+    async fn set_request_hash(&self, url: Url, hash: [u8; 32]) {
+        let mut lock = self.current_value.write().await;
+        lock.request_hashes.insert(url, hash);
+    }
+
+    async fn persist(&self) -> anyhow::Result<()> {
+        let current_value = self.current_value.read().await;
+        let new_content = serde_json::to_vec_pretty(&*current_value)?;
+
+        let mut file = fs::File::create(&self.path).await?;
+        tokio::io::copy(&mut &new_content[..], &mut file).await?;
+
+        Ok(())
+    }
+}
+
+#[serde_with::serde_as]
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+struct ContentLock {
+    #[serde_as(as = "HashMap<_, serde_with::hex::Hex>")]
+    request_hashes: HashMap<Url, [u8; 32]>,
 }
