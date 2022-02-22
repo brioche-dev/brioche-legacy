@@ -31,8 +31,10 @@ async fn run() -> anyhow::Result<()> {
     let state = state::State::new().await?;
 
     let recipe = recipe::eval_recipe(path).await?;
-
     println!("{:#?}", recipe);
+
+    let recipe_hash = recipe::recipe_definition_hash(&recipe)?;
+    println!("Recipe hash: {}", hex::encode(recipe_hash));
 
     let bootstrap_env = bootstrap_env::BootstrapEnv::new(&state).await?;
 
