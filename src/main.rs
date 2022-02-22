@@ -62,6 +62,9 @@ async fn run() -> anyhow::Result<()> {
         }
     }
 
+    state.persist_lockfile().await?;
+    println!("Persisted lockfile");
+
     let mut command = bootstrap_env::Command::new("/bin/sh");
     command.current_dir(bootstrap_env.container_source_path());
 
@@ -101,7 +104,6 @@ async fn run() -> anyhow::Result<()> {
     let () = child_stdin_task?;
 
     state.persist_lockfile().await?;
-
     println!("Persisted lockfile");
 
     Ok(())
