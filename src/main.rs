@@ -107,6 +107,13 @@ async fn run() -> anyhow::Result<()> {
     let () = child_task?;
     let () = child_stdin_task?;
 
+    println!(
+        "Built {} {} to {}",
+        recipe.name,
+        recipe.version,
+        recipe_prefix.host_output_path.display()
+    );
+
     state.persist_lockfile().await?;
     println!("Persisted lockfile");
 
