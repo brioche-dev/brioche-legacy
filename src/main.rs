@@ -70,6 +70,7 @@ async fn run() -> anyhow::Result<()> {
 
     let mut command = bootstrap_env::Command::new("/bin/sh");
     command.current_dir(bootstrap_env.container_source_path());
+    command.env("BRIOCHE_PREFIX", &recipe_prefix.container_path);
 
     let mut child = bootstrap_env.spawn(&command)?;
     let child_stdin = child.take_stdin();
