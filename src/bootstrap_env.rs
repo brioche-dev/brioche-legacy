@@ -6,7 +6,7 @@ use std::{
 
 use hex_literal::hex;
 use joinery::JoinableIterator;
-use tokio::{fs, io::BufReader};
+use tokio::fs;
 
 use crate::state::State;
 
@@ -20,9 +20,6 @@ impl BootstrapEnv {
     pub async fn new(state: &State) -> anyhow::Result<Self> {
         let work_dir = state.new_temp_work_dir().await?;
 
-        let alpine_root_dir = work_dir.join("layers").join("alpine-root");
-        fs::create_dir_all(&alpine_root_dir).await?;
-
         let inputs_dir = work_dir.join("layers").join("inputs");
         fs::create_dir_all(&inputs_dir).await?;
 
@@ -35,14 +32,11 @@ impl BootstrapEnv {
         let overlay_dir = work_dir.join("overlay");
         fs::create_dir_all(&overlay_dir).await?;
 
-        let alpine_tar_gz = state.download(
+        let mut alpine_tar_gz = state.download(
             "https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.0-x86_64.tar.gz".parse()?,
             &hex!("ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2"),
         ).await?;
-        let alpine_tar_gz = BufReader::new(alpine_tar_gz);
-        let alpine_tar = async_compression::tokio::bufread::GzipDecoder::new(alpine_tar_gz);
-        let mut alpine_archive = tokio_tar::Archive::new(alpine_tar);
-        alpine_archive.unpack(&alpine_root_dir).await?;
+        let alpine_root_dir = state.unpack(&mut alpine_tar_gz).await?;
 
         println!(
             "Unzipped Alpine minirootfs to {}",
