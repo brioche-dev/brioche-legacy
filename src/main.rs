@@ -8,7 +8,11 @@ mod state;
 
 #[derive(Debug, clap::Parser)]
 enum Args {
-    Build { path: PathBuf },
+    Build {
+        #[clap(long)]
+        repo: PathBuf,
+        recipe: String,
+    },
 }
 
 #[tokio::main]
@@ -26,11 +30,13 @@ async fn main() {
 async fn run() -> anyhow::Result<()> {
     let opt = Args::parse();
 
-    let Args::Build { path } = opt;
+    let Args::Build { repo, recipe } = opt;
+
+    let recipe_path = repo.join(recipe);
 
     let state = state::State::new().await?;
 
-    let recipe = recipe::eval_recipe(path).await?;
+    let recipe = recipe::eval_recipe(&recipe_path).await?;
     println!("{:#?}", recipe);
 
     let recipe_hash = recipe::recipe_definition_hash(&recipe)?;
