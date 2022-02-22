@@ -67,7 +67,7 @@ pub enum RecipeSource {
     },
 }
 
-#[derive(Debug, serde::Serialize, rquickjs::FromJs)]
+#[derive(Debug, Clone, serde::Serialize, rquickjs::FromJs)]
 #[quickjs(rename_all = "camelCase")]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeBuildScript {

@@ -218,6 +218,40 @@ impl State {
 
         Ok(())
     }
+
+    pub async fn save_recipe_output(
+        &self,
+        recipe: &crate::recipe::RecipeDefinition,
+        output_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<PathBuf> {
+        let recipe_hash = crate::recipe::recipe_definition_hash(recipe)?;
+        let recipe_dir = self
+            .project_dirs
+            .data_dir()
+            .join("recipes")
+            .join(hex::encode(&recipe_hash));
+
+        let recipe_prefix_dir = recipe_dir.join("prefix");
+
+        fs::create_dir_all(&recipe_prefix_dir).await?;
+
+        let temp_id = Uuid::new_v4();
+        let recipe_prefix_temp_dir = recipe_dir.join(format!("prefix-tmp.{}", temp_id));
+
+        let mv_result = tokio::process::Command::new("mv")
+            .arg(output_dir.as_ref())
+            .arg(&recipe_prefix_temp_dir)
+            .spawn()?
+            .wait()
+            .await?;
+        if !mv_result.success() {
+            anyhow::bail!("mv exited with status {}", mv_result);
+        }
+
+        fs::rename(&recipe_prefix_temp_dir, &recipe_prefix_dir).await?;
+
+        Ok(recipe_prefix_dir)
+    }
 }
 
 pub struct ContentFile {

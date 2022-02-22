@@ -89,6 +89,7 @@ async fn run() -> anyhow::Result<()> {
         }
     });
 
+    let recipe_build = recipe.build.clone();
     let child_stdin_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
         let mut child_stdin = match child_stdin {
             Some(child_stdin) => child_stdin,
@@ -97,7 +98,7 @@ async fn run() -> anyhow::Result<()> {
             }
         };
 
-        std::io::copy(&mut recipe.build.script.as_bytes(), &mut child_stdin)?;
+        std::io::copy(&mut recipe_build.script.as_bytes(), &mut child_stdin)?;
 
         Ok(())
     });
@@ -107,11 +108,15 @@ async fn run() -> anyhow::Result<()> {
     let () = child_task?;
     let () = child_stdin_task?;
 
+    let output_dir = state
+        .save_recipe_output(&recipe, &recipe_prefix.host_output_path)
+        .await?;
+
     println!(
         "Built {} {} to {}",
         recipe.name,
         recipe.version,
-        recipe_prefix.host_output_path.display()
+        output_dir.display()
     );
 
     state.persist_lockfile().await?;
