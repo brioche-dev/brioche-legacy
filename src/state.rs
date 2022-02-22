@@ -291,8 +291,8 @@ impl ContentRequest {
         }
     }
 
-    pub fn hash(mut self, sha_hash: [u8; 32]) -> Self {
-        self.content_hash = Some(sha_hash);
+    pub fn maybe_hash(mut self, sha_hash: Option<[u8; 32]>) -> Self {
+        self.content_hash = sha_hash;
         self
     }
 }
