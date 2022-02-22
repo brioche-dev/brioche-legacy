@@ -83,8 +83,6 @@ async fn run() -> anyhow::Result<()> {
     });
 
     let child_stdin_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
-        use std::io::Write as _;
-
         let mut child_stdin = match child_stdin {
             Some(child_stdin) => child_stdin,
             None => {
@@ -92,7 +90,7 @@ async fn run() -> anyhow::Result<()> {
             }
         };
 
-        write!(child_stdin, "{}", recipe.build.script)?;
+        std::io::copy(&mut recipe.build.script.as_bytes(), &mut child_stdin)?;
 
         Ok(())
     });
