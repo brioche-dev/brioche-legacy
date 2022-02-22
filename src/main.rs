@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Parser as _;
-use futures_util::TryStreamExt as _;
 
 mod bootstrap_env;
 mod recipe;
@@ -54,16 +53,12 @@ async fn run() -> anyhow::Result<()> {
             }
         }
         recipe::RecipeSource::Tarball { tarball } => {
-            let response = reqwest::get(&*tarball).await?;
-            let tar_gz_bytes = response
-                .bytes_stream()
-                .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error));
-            let tar_gz_bytes = tokio_util::io::StreamReader::new(tar_gz_bytes);
+            let source_content_req = state::ContentRequest::new(tarball.parse()?);
+            let mut source_content = state.download(source_content_req).await?;
 
-            let tar_bytes = async_compression::tokio::bufread::GzipDecoder::new(tar_gz_bytes);
-
-            let mut tar = tokio_tar::Archive::new(tar_bytes);
-            tar.unpack(bootstrap_env.host_source_path()).await?;
+            state
+                .unpack_to(&mut source_content, bootstrap_env.host_source_path())
+                .await?;
         }
     }
 
