@@ -29,7 +29,7 @@ pub async fn get_baked_recipe(
     }
 
     let bootstrap_env = crate::bootstrap_env::BootstrapEnv::new(&state).await?;
-    let recipe_prefix = bootstrap_env.create_recipe_prefix_path(&recipe).await?;
+    let recipe_prefix = bootstrap_env.recipe_prefix_path().await?;
 
     match &recipe.source {
         crate::recipe::RecipeSource::Git { git: repo, git_ref } => {
@@ -64,10 +64,7 @@ pub async fn get_baked_recipe(
     command.current_dir(bootstrap_env.container_source_path());
     command.env("BRIOCHE_PREFIX", &recipe_prefix.container_path);
     command.env("BRIOCHE_BOOTSTRAP_TARGET", bootstrap_env.bootstrap_target());
-    command.env(
-        "BRIOCHE_BOOTSTRAP_SYSROOT",
-        bootstrap_env.container_sysroot_path(),
-    );
+    command.env("BRIOCHE_BOOTSTRAP_SYSROOT", &recipe_prefix.container_path);
 
     let mut child = bootstrap_env.spawn(&command)?;
     let child_stdin = child.take_stdin();

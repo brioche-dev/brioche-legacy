@@ -14,7 +14,7 @@ pub struct BootstrapEnv {
     inputs_dir: PathBuf,
     outputs_dir: PathBuf,
     source_relative_dir: PathBuf,
-    sysroot_relative_dir: PathBuf,
+    prefix_relative_dir: PathBuf,
     chroot_config: ChrootConfig,
 }
 
@@ -72,13 +72,14 @@ impl BootstrapEnv {
         let source_relative_dir = PathBuf::new().join("usr").join("src");
         fs::create_dir_all(inputs_dir.join(&source_relative_dir)).await?;
 
-        let sysroot_relative_dir = PathBuf::new()
+        let prefix_relative_dir = PathBuf::new()
             .join("home")
             .join("brioche-dev")
             .join(".local")
             .join("share")
-            .join("bootstrap-prefix");
-        fs::create_dir_all(inputs_dir.join(&sysroot_relative_dir)).await?;
+            .join("brioche")
+            .join("prefix");
+        fs::create_dir_all(inputs_dir.join(&prefix_relative_dir)).await?;
 
         let chroot_config = ChrootConfig {
             lower_dirs: vec![alpine_root_dir, inputs_dir.clone()],
@@ -91,7 +92,7 @@ impl BootstrapEnv {
             inputs_dir,
             outputs_dir,
             source_relative_dir,
-            sysroot_relative_dir,
+            prefix_relative_dir,
             chroot_config,
         })
     }
@@ -113,32 +114,10 @@ impl BootstrapEnv {
         PathBuf::from("/").join(&self.source_relative_dir)
     }
 
-    // pub fn host_sysroot_path(&self) -> PathBuf {
-    //     self.inputs_dir.join(&self.sysroot_relative_dir)
-    // }
-
-    pub fn container_sysroot_path(&self) -> PathBuf {
-        PathBuf::from("/").join(&self.sysroot_relative_dir)
-    }
-
-    pub async fn create_recipe_prefix_path(
-        &self,
-        recipe: &crate::recipe::RecipeDefinition,
-    ) -> anyhow::Result<RecipePrefix> {
-        let recipe_hash = crate::recipe::recipe_definition_hash(&recipe)?;
-
-        let relative_path = PathBuf::new()
-            .join("home")
-            .join("brioche-dev")
-            .join(".local")
-            .join("share")
-            .join("brioche")
-            .join("recipes")
-            .join(hex::encode(&recipe_hash))
-            .join("prefix");
-        let container_path = PathBuf::from("/").join(&relative_path);
-        let host_input_path = self.inputs_dir.join(&relative_path);
-        let host_output_path = self.outputs_dir.join(&relative_path);
+    pub async fn recipe_prefix_path(&self) -> anyhow::Result<RecipePrefix> {
+        let container_path = PathBuf::from("/").join(&self.prefix_relative_dir);
+        let host_input_path = self.inputs_dir.join(&self.prefix_relative_dir);
+        let host_output_path = self.outputs_dir.join(&self.prefix_relative_dir);
 
         fs::create_dir_all(&host_input_path).await?;
 
