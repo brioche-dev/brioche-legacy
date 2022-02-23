@@ -14,6 +14,7 @@ pub struct BootstrapEnv {
     inputs_dir: PathBuf,
     outputs_dir: PathBuf,
     source_relative_dir: PathBuf,
+    sysroot_relative_dir: PathBuf,
     chroot_config: ChrootConfig,
 }
 
@@ -71,6 +72,14 @@ impl BootstrapEnv {
         let source_relative_dir = PathBuf::new().join("usr").join("src");
         fs::create_dir_all(inputs_dir.join(&source_relative_dir)).await?;
 
+        let sysroot_relative_dir = PathBuf::new()
+            .join("home")
+            .join("brioche-dev")
+            .join(".local")
+            .join("share")
+            .join("bootstrap-prefix");
+        fs::create_dir_all(inputs_dir.join(&sysroot_relative_dir)).await?;
+
         let chroot_config = ChrootConfig {
             lower_dirs: vec![alpine_root_dir, inputs_dir.clone()],
             upper_dir: outputs_dir.clone(),
@@ -82,6 +91,7 @@ impl BootstrapEnv {
             inputs_dir,
             outputs_dir,
             source_relative_dir,
+            sysroot_relative_dir,
             chroot_config,
         })
     }
@@ -101,6 +111,14 @@ impl BootstrapEnv {
 
     pub fn container_source_path(&self) -> PathBuf {
         PathBuf::from("/").join(&self.source_relative_dir)
+    }
+
+    // pub fn host_sysroot_path(&self) -> PathBuf {
+    //     self.inputs_dir.join(&self.sysroot_relative_dir)
+    // }
+
+    pub fn container_sysroot_path(&self) -> PathBuf {
+        PathBuf::from("/").join(&self.sysroot_relative_dir)
     }
 
     pub async fn create_recipe_prefix_path(
