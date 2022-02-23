@@ -86,6 +86,15 @@ impl BootstrapEnv {
         })
     }
 
+    pub fn bootstrap_target(&self) -> String {
+        let mut bootstrap_target = target_lexicon::HOST;
+        bootstrap_target.vendor = target_lexicon::Vendor::Custom(
+            target_lexicon::CustomVendor::Static("brioche_bootstrap"),
+        );
+
+        bootstrap_target.to_string()
+    }
+
     pub fn host_source_path(&self) -> PathBuf {
         self.inputs_dir.join(&self.source_relative_dir)
     }

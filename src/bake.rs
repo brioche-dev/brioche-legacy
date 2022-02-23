@@ -63,6 +63,7 @@ pub async fn get_baked_recipe(
     let mut command = crate::bootstrap_env::Command::new("/bin/sh");
     command.current_dir(bootstrap_env.container_source_path());
     command.env("BRIOCHE_PREFIX", &recipe_prefix.container_path);
+    command.env("BRIOCHE_BOOTSTRAP_TARGET", bootstrap_env.bootstrap_target());
 
     let mut child = bootstrap_env.spawn(&command)?;
     let child_stdin = child.take_stdin();
