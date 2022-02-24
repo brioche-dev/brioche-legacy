@@ -34,7 +34,7 @@ export const recipe = {
             cd build
             ../configure \
                 --prefix="$BRIOCHE_PREFIX" \
-                --with-sysroot="$BRIOCHE_BOOTSTRAP_SYSROOT" \
+                --with-sysroot="$BRIOCHE_PREFIX" \
                 --target="$BRIOCHE_BOOTSTRAP_TARGET" \
                 --disable-nls \
                 --disable-werror

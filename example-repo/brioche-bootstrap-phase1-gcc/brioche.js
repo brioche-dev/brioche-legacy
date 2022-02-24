@@ -57,7 +57,7 @@ export const recipe = {
                 --target="$BRIOCHE_BOOTSTRAP_TARGET" \
                 --prefix="$BRIOCHE_PREFIX" \
                 --with-glibc-version=2.11 \
-                --with-sysroot="$BRIOCHE_BOOTSTRAP_SYSROOT" \
+                --with-sysroot="$BRIOCHE_PREFIX" \
                 --with-newlib \
                 --without-headers \
                 --enable-initfini-array \
