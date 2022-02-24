@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use tokio::fs;
+
 use crate::state::State;
 
 pub struct BakedRecipe {
@@ -7,12 +9,13 @@ pub struct BakedRecipe {
     pub prefix_path: PathBuf,
 }
 
+#[async_recursion::async_recursion]
 pub async fn get_baked_recipe(
     state: &State,
-    repo: impl AsRef<Path>,
+    repo: &Path,
     recipe: &str,
 ) -> anyhow::Result<BakedRecipe> {
-    let recipe_path = repo.as_ref().join(recipe);
+    let recipe_path = repo.join(recipe);
 
     let recipe = crate::recipe::eval_recipe(&recipe_path).await?;
     println!("{:#?}", recipe);
@@ -59,6 +62,34 @@ pub async fn get_baked_recipe(
 
     state.persist_lockfile().await?;
     println!("Persisted lockfile");
+
+    // TODO: Resolve based on dependency version
+    for (dependency_name, _dependency_version) in &recipe.dependencies {
+        let recipe = get_baked_recipe(state, &repo, dependency_name).await?;
+
+        // Copy each entry from the recipe into the prefix path
+
+        let mut cp_command = tokio::process::Command::new("cp");
+        cp_command.arg("-a");
+        cp_command.arg("-r");
+
+        let mut entries = fs::read_dir(&recipe.prefix_path).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            cp_command.arg(&entry.path());
+        }
+
+        cp_command.arg(&recipe_prefix.host_input_path);
+
+        let cp_result = cp_command.spawn()?.wait().await?;
+        if !cp_result.success() {
+            anyhow::bail!(
+                "failed to copy dependency {} from {} to {}",
+                dependency_name,
+                recipe.prefix_path.display(),
+                recipe_prefix.host_input_path.display(),
+            );
+        }
+    }
 
     let mut command = crate::bootstrap_env::Command::new("/bin/sh");
     command.current_dir(bootstrap_env.container_source_path());

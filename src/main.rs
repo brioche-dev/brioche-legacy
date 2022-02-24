@@ -34,7 +34,7 @@ async fn run() -> anyhow::Result<()> {
     let Args::Build { repo, recipe } = opt;
 
     let state = state::State::new().await?;
-    let built_recipe = bake::get_baked_recipe(&state, repo, &recipe).await?;
+    let built_recipe = bake::get_baked_recipe(&state, &*repo, &recipe).await?;
 
     println!(
         "Built {} {} to {}",
