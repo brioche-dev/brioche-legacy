@@ -127,16 +127,19 @@ impl BootstrapEnv {
     }
 
     pub fn spawn(&self, command: &Command) -> anyhow::Result<Child> {
+        let recipe_prefix = self.recipe_prefix_path();
+
         let mut spawn_cmd = unshare::Command::new(&command.program);
         spawn_cmd.reset_fds();
         spawn_cmd.env_clear();
-        spawn_cmd.envs([
-            (
-                "PATH",
-                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        spawn_cmd.env(
+            "PATH",
+            format!(
+                "{recipe_prefix_bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                recipe_prefix_bin = recipe_prefix.container_path.join("bin").display(),
             ),
-            ("HOME", "/root"),
-        ]);
+        );
+        spawn_cmd.env("HOME", "/root");
         spawn_cmd.chroot_dir(&self.chroot_config.target_dir);
 
         spawn_cmd.args(&command.args);
