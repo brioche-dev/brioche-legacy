@@ -9,6 +9,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.54"
+async-recursion = "1.0.0"
 cjson = "0.1.2"
 clap = { version = "3.1.0", features = ["derive"] }
 directories = "4.0.1"
