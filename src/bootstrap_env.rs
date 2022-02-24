@@ -114,18 +114,16 @@ impl BootstrapEnv {
         PathBuf::from("/").join(&self.source_relative_dir)
     }
 
-    pub async fn recipe_prefix_path(&self) -> anyhow::Result<RecipePrefix> {
+    pub fn recipe_prefix_path(&self) -> RecipePrefix {
         let container_path = PathBuf::from("/").join(&self.prefix_relative_dir);
         let host_input_path = self.inputs_dir.join(&self.prefix_relative_dir);
         let host_output_path = self.outputs_dir.join(&self.prefix_relative_dir);
 
-        fs::create_dir_all(&host_input_path).await?;
-
-        Ok(RecipePrefix {
+        RecipePrefix {
             container_path,
             host_input_path,
             host_output_path,
-        })
+        }
     }
 
     pub fn spawn(&self, command: &Command) -> anyhow::Result<Child> {

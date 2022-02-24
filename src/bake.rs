@@ -29,7 +29,7 @@ pub async fn get_baked_recipe(
     }
 
     let bootstrap_env = crate::bootstrap_env::BootstrapEnv::new(&state).await?;
-    let recipe_prefix = bootstrap_env.recipe_prefix_path().await?;
+    let recipe_prefix = bootstrap_env.recipe_prefix_path();
 
     match &recipe.source {
         crate::recipe::RecipeSource::Git { git: repo, git_ref } => {
