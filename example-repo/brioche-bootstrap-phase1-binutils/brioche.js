@@ -26,14 +26,18 @@ export const recipe = {
         },
         dependencies: {},
         build: sh`
+            set -eu
+
+            export PATH="$BRIOCHE_PREFIX/tools/bin\${PATH:+:$PATH}"
             apk add build-base
+
             cd ./binutils-*
             env
             sleep 10
             mkdir -v build
             cd build
             ../configure \
-                --prefix="$BRIOCHE_PREFIX" \
+                --prefix="$BRIOCHE_PREFIX/tools" \
                 --with-sysroot="$BRIOCHE_PREFIX" \
                 --target="$BRIOCHE_BOOTSTRAP_TARGET" \
                 --disable-nls \

@@ -30,6 +30,7 @@ export const recipe = {
         build: sh`
             set -eu
 
+            export PATH="$BRIOCHE_PREFIX/tools/bin\${PATH:+:$PATH}"
             apk add build-base
             wget https://www.mpfr.org/mpfr-4.1.0/mpfr-4.1.0.tar.xz
             wget https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz
@@ -55,7 +56,7 @@ export const recipe = {
             cd build
             ../configure \
                 --target="$BRIOCHE_BOOTSTRAP_TARGET" \
-                --prefix="$BRIOCHE_PREFIX" \
+                --prefix="$BRIOCHE_PREFIX/tools" \
                 --with-glibc-version=2.11 \
                 --with-sysroot="$BRIOCHE_PREFIX" \
                 --with-newlib \
