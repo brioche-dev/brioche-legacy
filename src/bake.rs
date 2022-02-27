@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use tokio::fs;
+use url::Url;
 
 use crate::state::State;
 
@@ -36,18 +37,25 @@ pub async fn get_baked_recipe(
 
     match &recipe.source {
         crate::recipe::RecipeSource::Git { git: repo, git_ref } => {
-            let mut git_command = tokio::process::Command::new("git");
-            git_command.arg("clone");
-            git_command.arg("--branch").arg(git_ref);
-            git_command.arg("--depth").arg("1");
-            git_command
-                .arg("--")
-                .arg(repo)
-                .arg(bootstrap_env.host_source_path());
-            let git_result = git_command.status().await?;
+            let repo: Url = repo.parse()?;
+            let git_checkout_req = crate::state::GitCheckoutRequest::new(repo, git_ref);
+            let git_checkout = state.git_checkout(git_checkout_req).await?;
 
-            if !git_result.success() {
-                anyhow::bail!("git clone failed with exit code {}", git_result);
+            let host_source_path = bootstrap_env.host_source_path();
+
+            let mut cp_command = tokio::process::Command::new("cp");
+            cp_command.arg("-a");
+            cp_command.arg("-r");
+            cp_command.arg(&git_checkout.checkout_path);
+            cp_command.arg(&host_source_path);
+
+            let cp_result = cp_command.spawn()?.wait().await?;
+            if !cp_result.success() {
+                anyhow::bail!(
+                    "failed to copy git source from {} to {}",
+                    git_checkout.checkout_path.display(),
+                    host_source_path.display(),
+                );
             }
         }
         crate::recipe::RecipeSource::Tarball { tarball } => {

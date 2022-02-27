@@ -21,7 +21,9 @@ use crate::hash::Hash;
 pub struct State {
     project_dirs: directories::ProjectDirs,
     lockfile: Lockfile,
+    pub checkouts_dir: PathBuf,
     pub downloads_dir: PathBuf,
+    pub temp_checkouts_dir: PathBuf,
     pub temp_downloads_dir: PathBuf,
 }
 
@@ -32,6 +34,12 @@ impl State {
 
         let data_dir = project_dirs.data_dir();
         fs::create_dir_all(&data_dir).await?;
+
+        let checkouts_dir = data_dir.join("checkouts");
+        fs::create_dir_all(&checkouts_dir).await?;
+
+        let temp_checkouts_dir = checkouts_dir.join("_temp");
+        fs::create_dir_all(&temp_checkouts_dir).await?;
 
         let downloads_dir = data_dir.join("downloads");
         fs::create_dir_all(&downloads_dir).await?;
@@ -45,7 +53,9 @@ impl State {
         Ok(Self {
             project_dirs,
             lockfile,
+            checkouts_dir,
             downloads_dir,
+            temp_checkouts_dir,
             temp_downloads_dir,
         })
     }
@@ -150,6 +160,96 @@ impl State {
         Ok(ContentFile {
             file: download_file,
             content_hash: downloaded_hash,
+        })
+    }
+
+    pub async fn git_checkout(&self, req: GitCheckoutRequest) -> anyhow::Result<GitCheckout> {
+        let commit = self.lockfile.git_commit_hash(&req.repo, &req.git_ref).await;
+        if let Some(ref commit) = commit {
+            let existing_checkout_path = self.checkouts_dir.join(commit);
+            if existing_checkout_path.is_dir() {
+                return Ok(GitCheckout {
+                    checkout_path: existing_checkout_path,
+                    commit: commit.to_string(),
+                });
+            }
+        }
+
+        let checkout_id = Uuid::new_v4();
+        let temp_checkout_path = self.temp_checkouts_dir.join(checkout_id.to_string());
+
+        let mut git_clone_command = tokio::process::Command::new("git");
+        git_clone_command.arg("clone");
+        git_clone_command.arg("--branch").arg(&req.git_ref);
+        git_clone_command.arg("--depth").arg("1");
+        git_clone_command
+            .arg("--")
+            .arg(req.repo.to_string())
+            .arg(&temp_checkout_path);
+        let git_clone_result = git_clone_command.status().await?;
+
+        if !git_clone_result.success() {
+            anyhow::bail!("git clone failed with exit code {}", git_clone_result);
+        }
+
+        let mut git_rev_parse_command = tokio::process::Command::new("git");
+        git_rev_parse_command.arg("rev-parse").arg("HEAD");
+        git_rev_parse_command.current_dir(&temp_checkout_path);
+        let git_rev_parse_output = git_rev_parse_command.output().await?;
+
+        if !git_rev_parse_output.status.success() {
+            println!(
+                "rev-parse stdout: {}",
+                String::from_utf8_lossy(&git_rev_parse_output.stdout)
+            );
+            eprintln!(
+                "rev-parse stderr: {}",
+                String::from_utf8_lossy(&git_rev_parse_output.stdout)
+            );
+            anyhow::bail!(
+                "git rev-parse failed with exit code {})",
+                git_rev_parse_output.status
+            );
+        }
+
+        // Trim any whitespace and normalize the commit hash by decoding
+        // and re-encoding it as hex
+        let git_commit_hash = String::from_utf8_lossy(&git_rev_parse_output.stdout);
+        let git_commit_hash = git_commit_hash.trim_end();
+        let git_commit_hash = hex::decode(git_commit_hash)?;
+        let git_commit_hash = hex::encode(&git_commit_hash);
+
+        let final_checkout_path = self.checkouts_dir.join(&git_commit_hash);
+        let _ = fs::remove_dir_all(&final_checkout_path).await;
+
+        let rename_result = fs::rename(&temp_checkout_path, &final_checkout_path).await;
+        match rename_result {
+            Ok(()) => {
+                println!(
+                    "Checked out repo {} @ {} -> {}",
+                    req.repo,
+                    req.git_ref,
+                    final_checkout_path.display(),
+                );
+            }
+            Err(error) => {
+                eprintln!(
+                    "Checked out repo {} @ {} -> {} (failed to rename: {})",
+                    req.repo,
+                    req.git_ref,
+                    final_checkout_path.display(),
+                    error,
+                );
+            }
+        }
+
+        self.lockfile
+            .set_git_commit_hash(&req.repo, &req.git_ref, &git_commit_hash)
+            .await;
+
+        Ok(GitCheckout {
+            checkout_path: final_checkout_path,
+            commit: git_commit_hash,
         })
     }
 
@@ -287,6 +387,25 @@ impl State {
     }
 }
 
+pub struct GitCheckoutRequest {
+    repo: Url,
+    git_ref: String,
+}
+
+impl GitCheckoutRequest {
+    pub fn new(repo: Url, git_ref: &str) -> Self {
+        Self {
+            repo,
+            git_ref: git_ref.to_string(),
+        }
+    }
+}
+
+pub struct GitCheckout {
+    pub commit: String,
+    pub checkout_path: PathBuf,
+}
+
 pub struct ContentFile {
     file: tokio::fs::File,
     content_hash: Hash,
@@ -355,6 +474,19 @@ impl Lockfile {
         lock.request_hashes.insert(url, hash);
     }
 
+    async fn git_commit_hash(&self, repo: &Url, git_ref: &str) -> Option<String> {
+        let lock = self.current_value.read().await;
+        let repo_commits = lock.git_commits.get(repo)?;
+        let commit = repo_commits.get(git_ref)?;
+        Some(commit.to_string())
+    }
+
+    async fn set_git_commit_hash(&self, repo: &Url, git_ref: &str, commit: &str) {
+        let mut lock = self.current_value.write().await;
+        let repo_commits = lock.git_commits.entry(repo.clone()).or_default();
+        repo_commits.insert(git_ref.to_string(), commit.to_string());
+    }
+
     async fn persist(&self) -> anyhow::Result<()> {
         let current_value = self.current_value.read().await;
         let new_content = serde_json::to_vec_pretty(&*current_value)?;
@@ -369,4 +501,5 @@ impl Lockfile {
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 struct ContentLock {
     request_hashes: HashMap<Url, Hash>,
+    git_commits: HashMap<Url, HashMap<String, String>>,
 }
