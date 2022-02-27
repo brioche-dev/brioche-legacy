@@ -20,6 +20,8 @@ pub struct BootstrapEnv {
 
 impl BootstrapEnv {
     pub async fn new(state: &State) -> anyhow::Result<Self> {
+        use target_lexicon::{Aarch64Architecture, Architecture};
+
         let work_dir = state.new_temp_work_dir().await?;
 
         let inputs_dir = work_dir.join("layers").join("inputs");
@@ -39,14 +41,12 @@ impl BootstrapEnv {
 
         // Mini root filesystem SHA256 hashes from https://alpinelinux.org/downloads/
         let alpine_hash = match arch {
-            target_lexicon::Architecture::X86_64 => Some(hex!(
-                "ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2  "
+            Architecture::X86_64 => Some(hex!(
+                "ec7ec80a96500f13c189a6125f2dbe8600ef593b87fc4670fe959dc02db727a2"
             )),
-            target_lexicon::Architecture::Aarch64(target_lexicon::Aarch64Architecture::Aarch64) => {
-                Some(hex!(
-                    "1be50ae27c8463d005c4de16558d239e11a88ac6b2f8721c47e660fbeead69bf"
-                ))
-            }
+            Architecture::Aarch64(Aarch64Architecture::Aarch64) => Some(hex!(
+                "1be50ae27c8463d005c4de16558d239e11a88ac6b2f8721c47e660fbeead69bf"
+            )),
             _ => None,
         };
 
