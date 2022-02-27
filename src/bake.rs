@@ -21,7 +21,7 @@ pub async fn get_baked_recipe(
     println!("{:#?}", recipe);
 
     let recipe_hash = crate::recipe::recipe_definition_hash(&recipe)?;
-    println!("Recipe hash: {}", hex::encode(recipe_hash));
+    println!("Recipe hash: {}", recipe_hash);
 
     if let Some(prefix_path) = state.get_recipe_output(&recipe)? {
         println!("Recipe {} {} already baked", recipe.name, recipe.version);

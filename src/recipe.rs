@@ -2,6 +2,8 @@ use std::{collections::HashMap, path::Path};
 
 use tokio::{fs::File, io::AsyncReadExt as _};
 
+use crate::hash::Hash;
+
 pub async fn eval_recipe(path: impl AsRef<Path>) -> anyhow::Result<RecipeDefinition> {
     let path = path.as_ref();
     let recipe_path = path.join("brioche.js");
@@ -25,7 +27,7 @@ pub async fn eval_recipe(path: impl AsRef<Path>) -> anyhow::Result<RecipeDefinit
     Ok(recipe_def)
 }
 
-pub fn recipe_definition_hash(recipe: &RecipeDefinition) -> anyhow::Result<[u8; 32]> {
+pub fn recipe_definition_hash(recipe: &RecipeDefinition) -> anyhow::Result<Hash> {
     use sha2::Digest as _;
 
     let cjson_bytes = cjson::to_vec(&recipe)
@@ -33,7 +35,7 @@ pub fn recipe_definition_hash(recipe: &RecipeDefinition) -> anyhow::Result<[u8; 
 
     let mut cjson_hash = sha2::Sha256::new();
     cjson_hash.update(&cjson_bytes);
-    let cjson_hash = cjson_hash.finalize();
+    let cjson_hash = Hash::from_digest(cjson_hash);
 
     Ok(cjson_hash.try_into().expect("could not convert hash"))
 }

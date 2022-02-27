@@ -4,6 +4,7 @@ use clap::Parser as _;
 
 mod bake;
 mod bootstrap_env;
+mod hash;
 mod recipe;
 mod state;
 

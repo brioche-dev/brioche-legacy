@@ -15,6 +15,8 @@ use tokio::{
 use url::Url;
 use uuid::Uuid;
 
+use crate::hash::Hash;
+
 #[derive(Debug)]
 pub struct State {
     project_dirs: directories::ProjectDirs,
@@ -68,15 +70,12 @@ impl State {
     }
 
     pub async fn get_existing_content_file(&self, req: &ContentRequest) -> Option<ContentFile> {
-        let content_hash = req.content_hash.as_ref()?;
+        let content_hash = req.content_hash?;
 
-        let file_path = self.downloads_dir.join(hex::encode(&content_hash));
+        let file_path = self.downloads_dir.join(content_hash.to_path_component());
         let file = fs::File::open(&file_path).await.ok()?;
 
-        Some(ContentFile {
-            file,
-            content_hash: content_hash.clone(),
-        })
+        Some(ContentFile { file, content_hash })
     }
 
     pub async fn download(&self, mut req: ContentRequest) -> anyhow::Result<ContentFile> {
@@ -111,19 +110,19 @@ impl State {
             file_hash.update(&chunk);
         }
 
-        let downloaded_hash = file_hash.finalize();
+        let downloaded_hash = Hash::from_digest(file_hash);
         if let Some(expected_hash) = req.content_hash {
-            if &expected_hash != &*downloaded_hash {
+            if expected_hash != downloaded_hash {
                 anyhow::bail!(
                     "File hash did not match for {} (expected {}, got {})",
                     req.url,
-                    hex::encode(expected_hash),
-                    hex::encode(downloaded_hash),
+                    expected_hash,
+                    downloaded_hash,
                 );
             }
         };
 
-        let final_file_path = self.downloads_dir.join(hex::encode(&downloaded_hash));
+        let final_file_path = self.downloads_dir.join(downloaded_hash.to_path_component());
         let rename_result = fs::rename(&temp_file_path, &final_file_path).await;
         match rename_result {
             Ok(()) => {
@@ -143,13 +142,14 @@ impl State {
             }
         }
 
-        let content_hash: [u8; 32] = downloaded_hash.try_into().expect("could not convert hash");
-        self.lockfile.set_request_hash(req.url, content_hash).await;
+        self.lockfile
+            .set_request_hash(req.url, downloaded_hash)
+            .await;
 
         download_file.seek(SeekFrom::Start(0)).await?;
         Ok(ContentFile {
             file: download_file,
-            content_hash,
+            content_hash: downloaded_hash,
         })
     }
 
@@ -162,7 +162,7 @@ impl State {
             .project_dirs
             .data_dir()
             .join("unpack")
-            .join(hex::encode(archive_tar_gz.content_hash));
+            .join(archive_tar_gz.content_hash.to_path_component());
         let temp_dir = archive_dir.join("temp");
         let unpacked_dir = archive_dir.join("unpacked");
 
@@ -189,7 +189,7 @@ impl State {
             Ok(()) => {
                 println!(
                     "Unpacked {} -> {}",
-                    hex::encode(archive_tar_gz.content_hash),
+                    archive_tar_gz.content_hash,
                     unpacked_dir.display()
                 );
                 Ok(unpacked_dir)
@@ -197,7 +197,7 @@ impl State {
             Err(error) => {
                 eprintln!(
                     "Unpacked {} -> {} (failed to rename: {})",
-                    hex::encode(archive_tar_gz.content_hash),
+                    archive_tar_gz.content_hash,
                     target_dir.display(),
                     error
                 );
@@ -242,7 +242,7 @@ impl State {
             .project_dirs
             .data_dir()
             .join("recipes")
-            .join(hex::encode(&recipe_hash))
+            .join(recipe_hash.to_path_component())
             .join("prefix");
 
         if recipe_prefix_dir.is_dir() {
@@ -262,7 +262,7 @@ impl State {
             .project_dirs
             .data_dir()
             .join("recipes")
-            .join(hex::encode(&recipe_hash));
+            .join(recipe_hash.to_path_component());
 
         let recipe_prefix_dir = recipe_dir.join("prefix");
 
@@ -289,12 +289,12 @@ impl State {
 
 pub struct ContentFile {
     file: tokio::fs::File,
-    content_hash: [u8; 32],
+    content_hash: Hash,
 }
 
 pub struct ContentRequest {
     url: Url,
-    content_hash: Option<[u8; 32]>,
+    content_hash: Option<Hash>,
 }
 
 impl ContentRequest {
@@ -305,8 +305,8 @@ impl ContentRequest {
         }
     }
 
-    pub fn maybe_hash(mut self, sha_hash: Option<[u8; 32]>) -> Self {
-        self.content_hash = sha_hash;
+    pub fn maybe_hash(mut self, hash: Option<Hash>) -> Self {
+        self.content_hash = hash;
         self
     }
 }
@@ -345,12 +345,12 @@ impl Lockfile {
         })
     }
 
-    async fn request_hash(&self, url: &Url) -> Option<[u8; 32]> {
+    async fn request_hash(&self, url: &Url) -> Option<Hash> {
         let lock = self.current_value.read().await;
         lock.request_hashes.get(url).cloned()
     }
 
-    async fn set_request_hash(&self, url: Url, hash: [u8; 32]) {
+    async fn set_request_hash(&self, url: Url, hash: Hash) {
         let mut lock = self.current_value.write().await;
         lock.request_hashes.insert(url, hash);
     }
@@ -366,9 +366,7 @@ impl Lockfile {
     }
 }
 
-#[serde_with::serde_as]
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 struct ContentLock {
-    #[serde_as(as = "HashMap<_, serde_with::hex::Hex>")]
-    request_hashes: HashMap<Url, [u8; 32]>,
+    request_hashes: HashMap<Url, Hash>,
 }

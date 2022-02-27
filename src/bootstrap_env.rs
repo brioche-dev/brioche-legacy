@@ -8,7 +8,7 @@ use hex_literal::hex;
 use joinery::JoinableIterator;
 use tokio::fs;
 
-use crate::state::State;
+use crate::{hash::Hash, state::State};
 
 pub struct BootstrapEnv {
     inputs_dir: PathBuf,
@@ -49,6 +49,7 @@ impl BootstrapEnv {
             )),
             _ => None,
         };
+        let alpine_hash = alpine_hash.map(|bytes| Hash::from_bytes(bytes));
 
         let alpine_tar_gz_req =
             crate::state::ContentRequest::new(alpine_tar_gz_url.parse()?).maybe_hash(alpine_hash);
