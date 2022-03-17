@@ -15,7 +15,7 @@ use tokio::{
 use url::Url;
 use uuid::Uuid;
 
-use crate::hash::Hash;
+use crate::{hash::Hash, recipe::ResolvedRecipeRef};
 
 #[derive(Debug)]
 pub struct State {
@@ -335,14 +335,13 @@ impl State {
 
     pub fn get_recipe_output(
         &self,
-        recipe: &crate::recipe::RecipeDefinition,
+        recipe_ref: &ResolvedRecipeRef,
     ) -> anyhow::Result<Option<PathBuf>> {
-        let recipe_hash = crate::recipe::recipe_definition_hash(recipe)?;
         let recipe_prefix_dir = self
             .project_dirs
             .data_dir()
             .join("recipes")
-            .join(recipe_hash.to_path_component())
+            .join(recipe_ref.to_path_component())
             .join("prefix");
 
         if recipe_prefix_dir.is_dir() {
@@ -354,15 +353,14 @@ impl State {
 
     pub async fn save_recipe_output(
         &self,
-        recipe: &crate::recipe::RecipeDefinition,
+        recipe_ref: &crate::recipe::ResolvedRecipeRef,
         output_dir: impl AsRef<Path>,
     ) -> anyhow::Result<PathBuf> {
-        let recipe_hash = crate::recipe::recipe_definition_hash(recipe)?;
         let recipe_dir = self
             .project_dirs
             .data_dir()
             .join("recipes")
-            .join(recipe_hash.to_path_component());
+            .join(recipe_ref.to_path_component());
 
         let recipe_prefix_dir = recipe_dir.join("prefix");
 
@@ -401,14 +399,26 @@ impl GitCheckoutRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct GitCheckout {
     pub commit: String,
     pub checkout_path: PathBuf,
 }
 
+#[derive(Debug)]
 pub struct ContentFile {
     file: tokio::fs::File,
-    content_hash: Hash,
+    pub content_hash: Hash,
+}
+
+impl ContentFile {
+    pub async fn try_clone(&self) -> anyhow::Result<Self> {
+        let file = self.file.try_clone().await?;
+        Ok(Self {
+            file,
+            content_hash: self.content_hash,
+        })
+    }
 }
 
 pub struct ContentRequest {

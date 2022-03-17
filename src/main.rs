@@ -35,13 +35,18 @@ async fn run() -> anyhow::Result<()> {
     let Args::Build { repo, recipe } = opt;
 
     let state = state::State::new().await?;
-    let built_recipe = bake::get_baked_recipe(&state, &*repo, &recipe).await?;
+
+    let mut recipe_set = recipe::ResolvedRecipeSet::new();
+    let resolved_recipe = recipe::resolve_recipe(&state, &*repo, &recipe, &mut recipe_set).await?;
+    let baked_recipe = bake::get_baked_recipe(&state, &recipe_set, &resolved_recipe).await?;
+
+    let recipe = recipe_set.get(&resolved_recipe);
 
     println!(
         "Built {} {} to {}",
-        built_recipe.recipe.name,
-        built_recipe.recipe.version,
-        built_recipe.prefix_path.display()
+        recipe.name,
+        recipe.version,
+        baked_recipe.prefix_path.display()
     );
 
     state.persist_lockfile().await?;

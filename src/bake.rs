@@ -1,48 +1,69 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use tokio::fs;
-use url::Url;
 
-use crate::state::State;
+use crate::{
+    recipe::{ResolvedRecipeRef, ResolvedRecipeSet},
+    state::State,
+};
 
 pub struct BakedRecipe {
-    pub recipe: crate::recipe::RecipeDefinition,
+    pub recipe_ref: ResolvedRecipeRef,
     pub prefix_path: PathBuf,
 }
 
 #[async_recursion::async_recursion]
 pub async fn get_baked_recipe(
     state: &State,
-    repo: &Path,
-    recipe: &str,
+    recipe_set: &ResolvedRecipeSet,
+    recipe_ref: &ResolvedRecipeRef,
 ) -> anyhow::Result<BakedRecipe> {
-    let recipe_path = repo.join(recipe);
-
-    let recipe = crate::recipe::eval_recipe(&recipe_path).await?;
-    println!("{:#?}", recipe);
-
-    let recipe_hash = crate::recipe::recipe_definition_hash(&recipe)?;
-    println!("Recipe hash: {}", recipe_hash);
-
-    if let Some(prefix_path) = state.get_recipe_output(&recipe)? {
+    let recipe = recipe_set.get(recipe_ref);
+    if let Some(prefix_path) = state.get_recipe_output(recipe_ref)? {
         println!("Recipe {} {} already baked", recipe.name, recipe.version);
         return Ok(BakedRecipe {
+            recipe_ref: *recipe_ref,
             prefix_path,
-            recipe,
         });
     }
 
     let bootstrap_env = crate::bootstrap_env::BootstrapEnv::new(&state).await?;
     let recipe_prefix = bootstrap_env.recipe_prefix_path();
 
-    match &recipe.source {
-        crate::recipe::RecipeSource::Git { git: repo, git_ref } => {
-            let repo: Url = repo.parse()?;
-            let git_checkout_req = crate::state::GitCheckoutRequest::new(repo, git_ref);
-            let git_checkout = state.git_checkout(git_checkout_req).await?;
+    state.persist_lockfile().await?;
+    println!("Persisted lockfile");
 
-            let host_source_path = bootstrap_env.host_source_path();
+    for dependency_ref in &recipe.dependencies {
+        let dependency_recipe = get_baked_recipe(state, recipe_set, dependency_ref).await?;
 
+        // Copy each entry from the recipe into the prefix path
+
+        let mut cp_command = tokio::process::Command::new("cp");
+        cp_command.arg("-a");
+        cp_command.arg("-r");
+
+        let mut entries = fs::read_dir(&dependency_recipe.prefix_path).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            cp_command.arg(&entry.path());
+        }
+
+        cp_command.arg(&recipe_prefix.host_input_path);
+
+        let cp_result = cp_command.spawn()?.wait().await?;
+        if !cp_result.success() {
+            anyhow::bail!(
+                "failed to copy dependency {} from {} to {}",
+                dependency_ref,
+                dependency_recipe.prefix_path.display(),
+                recipe_prefix.host_input_path.display(),
+            );
+        }
+    }
+
+    let host_source_path = bootstrap_env.host_source_path();
+    let source = recipe_set.get_source(&recipe.source);
+    match &source {
+        crate::recipe::ResolvedRecipeSource::Git(git_checkout) => {
             let mut cp_command = tokio::process::Command::new("cp");
             cp_command.arg("-a");
             cp_command.arg("-r");
@@ -58,44 +79,11 @@ pub async fn get_baked_recipe(
                 );
             }
         }
-        crate::recipe::RecipeSource::Tarball { tarball } => {
-            let source_content_req = crate::state::ContentRequest::new(tarball.parse()?);
-            let mut source_content = state.download(source_content_req).await?;
-
+        crate::recipe::ResolvedRecipeSource::Tarball(content_file) => {
+            let mut content_file = content_file.try_clone().await?;
             state
-                .unpack_to(&mut source_content, bootstrap_env.host_source_path())
+                .unpack_to(&mut content_file, bootstrap_env.host_source_path())
                 .await?;
-        }
-    }
-
-    state.persist_lockfile().await?;
-    println!("Persisted lockfile");
-
-    // TODO: Resolve based on dependency version
-    for (dependency_name, _dependency_version) in &recipe.dependencies {
-        let recipe = get_baked_recipe(state, &repo, dependency_name).await?;
-
-        // Copy each entry from the recipe into the prefix path
-
-        let mut cp_command = tokio::process::Command::new("cp");
-        cp_command.arg("-a");
-        cp_command.arg("-r");
-
-        let mut entries = fs::read_dir(&recipe.prefix_path).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            cp_command.arg(&entry.path());
-        }
-
-        cp_command.arg(&recipe_prefix.host_input_path);
-
-        let cp_result = cp_command.spawn()?.wait().await?;
-        if !cp_result.success() {
-            anyhow::bail!(
-                "failed to copy dependency {} from {} to {}",
-                dependency_name,
-                recipe.prefix_path.display(),
-                recipe_prefix.host_input_path.display(),
-            );
         }
     }
 
@@ -141,14 +129,14 @@ pub async fn get_baked_recipe(
     let () = child_stdin_task?;
 
     let prefix_path = state
-        .save_recipe_output(&recipe, &recipe_prefix.host_output_path)
+        .save_recipe_output(&recipe_ref, &recipe_prefix.host_output_path)
         .await?;
 
     state.persist_lockfile().await?;
     println!("Persisted lockfile");
 
     Ok(BakedRecipe {
-        recipe,
+        recipe_ref: *recipe_ref,
         prefix_path,
     })
 }
