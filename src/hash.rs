@@ -1,11 +1,14 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{
+    fmt::{Debug, Display},
+    path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
 
 const SHA256_DIGEST_SIZE: usize = 32;
 
 #[serde_with::serde_as]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Hash {
     #[serde_as(as = "serde_with::hex::Hex")]
@@ -28,6 +31,12 @@ impl Hash {
 
     pub fn to_path_component(&self) -> PathBuf {
         PathBuf::from(self.to_string())
+    }
+}
+
+impl Debug for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Hash({})", self)
     }
 }
 
