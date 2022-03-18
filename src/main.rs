@@ -49,8 +49,14 @@ async fn run() -> anyhow::Result<()> {
         baked_recipe.prefix_path.display()
     );
 
-    state.persist_lockfile().await?;
-    println!("Persisted lockfile");
+    match state.persist_lockfile().await? {
+        true => {
+            println!("Updated lockfile");
+        }
+        false => {
+            println!("Lockfile already up to date");
+        }
+    }
 
     Ok(())
 }

@@ -60,9 +60,9 @@ impl State {
         })
     }
 
-    pub async fn persist_lockfile(&self) -> anyhow::Result<()> {
-        self.lockfile.persist().await?;
-        Ok(())
+    pub async fn persist_lockfile(&self) -> anyhow::Result<bool> {
+        let result = self.lockfile.persist().await?;
+        Ok(result)
     }
 
     pub async fn new_temp_work_dir(&self) -> anyhow::Result<PathBuf> {
@@ -447,6 +447,7 @@ pub enum UnpackOpts {
 #[derive(Debug)]
 struct Lockfile {
     path: PathBuf,
+    persisted_value: RwLock<ContentLock>,
     current_value: RwLock<ContentLock>,
 }
 
@@ -455,7 +456,7 @@ impl Lockfile {
         let path = path.as_ref();
         let file = fs::File::open(path).await;
 
-        let current_value = match file {
+        let persisted_value = match file {
             Ok(mut existing_file) => {
                 let mut file_content = vec![];
                 existing_file.read_to_end(&mut file_content).await?;
@@ -467,9 +468,11 @@ impl Lockfile {
                 ContentLock::default()
             }
         };
+        let current_value = persisted_value.clone();
 
         Ok(Self {
             path: path.to_owned(),
+            persisted_value: RwLock::new(persisted_value),
             current_value: RwLock::new(current_value),
         })
     }
@@ -497,18 +500,26 @@ impl Lockfile {
         repo_commits.insert(git_ref.to_string(), commit.to_string());
     }
 
-    async fn persist(&self) -> anyhow::Result<()> {
+    async fn persist(&self) -> anyhow::Result<bool> {
+        let mut persisted_value = self.persisted_value.write().await;
         let current_value = self.current_value.read().await;
-        let new_content = serde_json::to_vec_pretty(&*current_value)?;
 
-        let mut file = fs::File::create(&self.path).await?;
-        tokio::io::copy(&mut &new_content[..], &mut file).await?;
+        if *persisted_value == *current_value {
+            // File unchanged
+            Ok(false)
+        } else {
+            let new_content = serde_json::to_vec_pretty(&*current_value)?;
 
-        Ok(())
+            let mut file = fs::File::create(&self.path).await?;
+            tokio::io::copy(&mut &new_content[..], &mut file).await?;
+
+            *persisted_value = current_value.clone();
+            Ok(true)
+        }
     }
 }
 
-#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ContentLock {
     request_hashes: HashMap<Url, Hash>,
     git_commits: HashMap<Url, HashMap<String, String>>,
