@@ -94,6 +94,8 @@ pub async fn get_baked_recipe(
 
     let mut child = bootstrap_env.spawn(&command)?;
     let child_stdin = child.take_stdin();
+    let child_stdout = child.take_stdout();
+    let child_stderr = child.take_stderr();
 
     let child_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
         let exit_status = child.wait()?;
@@ -122,11 +124,46 @@ pub async fn get_baked_recipe(
 
         Ok(())
     });
+    let child_stdout_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+        let mut child_stdout = match child_stdout {
+            Some(child_stdout) => child_stdout,
+            None => {
+                return Ok(());
+            }
+        };
 
-    let (child_task, child_stdin_task) = tokio::try_join!(child_task, child_stdin_task)?;
+        let stdout = std::io::stdout();
+        let mut stdout = stdout.lock();
+        std::io::copy(&mut child_stdout, &mut stdout)?;
+
+        Ok(())
+    });
+    let child_stderr_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+        let mut child_stderr = match child_stderr {
+            Some(child_stderr) => child_stderr,
+            None => {
+                return Ok(());
+            }
+        };
+
+        let stderr = std::io::stderr();
+        let mut stderr = stderr.lock();
+        std::io::copy(&mut child_stderr, &mut stderr)?;
+
+        Ok(())
+    });
+
+    let (child_task, child_stdin_task, child_stdout_task, child_stderr_task) = tokio::try_join!(
+        child_task,
+        child_stdin_task,
+        child_stdout_task,
+        child_stderr_task
+    )?;
 
     let () = child_task?;
     let () = child_stdin_task?;
+    let () = child_stdout_task?;
+    let () = child_stderr_task?;
 
     let prefix_path = state
         .save_recipe_output(&recipe_ref, &recipe_prefix.host_output_path)

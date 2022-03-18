@@ -156,6 +156,8 @@ impl BootstrapEnv {
             &unshare::Namespace::User,
         ]);
         spawn_cmd.stdin(unshare::Stdio::Pipe);
+        spawn_cmd.stdout(unshare::Stdio::Pipe);
+        spawn_cmd.stderr(unshare::Stdio::Pipe);
 
         let current_uid = nix::unistd::Uid::current().as_raw();
         let current_gid = nix::unistd::Gid::current().as_raw();
@@ -239,6 +241,14 @@ pub struct Child {
 impl Child {
     pub fn take_stdin(&mut self) -> Option<impl std::io::Write> {
         self.child.stdin.take()
+    }
+
+    pub fn take_stdout(&mut self) -> Option<impl std::io::Read> {
+        self.child.stdout.take()
+    }
+
+    pub fn take_stderr(&mut self) -> Option<impl std::io::Read> {
+        self.child.stdout.take()
     }
 
     pub fn wait(&mut self) -> anyhow::Result<unshare::ExitStatus> {
