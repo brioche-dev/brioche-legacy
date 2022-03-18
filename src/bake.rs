@@ -30,8 +30,14 @@ pub async fn get_baked_recipe(
     let bootstrap_env = crate::bootstrap_env::BootstrapEnv::new(&state).await?;
     let recipe_prefix = bootstrap_env.recipe_prefix_path();
 
-    state.persist_lockfile().await?;
-    println!("Persisted lockfile");
+    match state.persist_lockfile().await? {
+        true => {
+            println!("Updated lockfile");
+        }
+        false => {
+            println!("Lockfile already up to date");
+        }
+    }
 
     for dependency_ref in &recipe.dependencies {
         let dependency_recipe = get_baked_recipe(state, recipe_set, dependency_ref).await?;
@@ -169,8 +175,14 @@ pub async fn get_baked_recipe(
         .save_recipe_output(&recipe_ref, &recipe_prefix.host_output_path)
         .await?;
 
-    state.persist_lockfile().await?;
-    println!("Persisted lockfile");
+    match state.persist_lockfile().await? {
+        true => {
+            println!("Updated lockfile");
+        }
+        false => {
+            println!("Lockfile already up to date");
+        }
+    }
 
     Ok(BakedRecipe {
         recipe_ref: *recipe_ref,
