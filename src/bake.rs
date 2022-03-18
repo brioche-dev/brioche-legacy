@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    io::{BufRead as _, Write as _},
+    path::PathBuf,
+    sync::{atomic::AtomicU64, Arc},
+};
 
 use tokio::fs;
 
@@ -118,6 +122,8 @@ pub async fn get_baked_recipe(
     });
 
     let recipe_build = recipe.build.clone();
+    let lines_stdout = Arc::new(AtomicU64::new(0));
+    let lines_stderr = Arc::new(AtomicU64::new(0));
     let child_stdin_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
         let mut child_stdin = match child_stdin {
             Some(child_stdin) => child_stdin,
@@ -125,38 +131,57 @@ pub async fn get_baked_recipe(
                 return Ok(());
             }
         };
-
         std::io::copy(&mut recipe_build.script.as_bytes(), &mut child_stdin)?;
 
         Ok(())
     });
-    let child_stdout_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
-        let mut child_stdout = match child_stdout {
-            Some(child_stdout) => child_stdout,
-            None => {
-                return Ok(());
+    let child_stdout_task = tokio::task::spawn_blocking({
+        let lines_stdout = lines_stdout.clone();
+        move || -> anyhow::Result<_> {
+            let child_stdout = match child_stdout {
+                Some(child_stdout) => child_stdout,
+                None => {
+                    return Ok(());
+                }
+            };
+            let child_stdout = std::io::BufReader::new(child_stdout);
+
+            let stdout = std::io::stdout();
+            let mut stdout = stdout.lock();
+            for line in child_stdout.split(b'\n') {
+                let line = line?;
+                let line = String::from_utf8_lossy(&line);
+
+                lines_stdout.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                writeln!(stdout, "{}", line)?;
             }
-        };
 
-        let stdout = std::io::stdout();
-        let mut stdout = stdout.lock();
-        std::io::copy(&mut child_stdout, &mut stdout)?;
-
-        Ok(())
+            Ok(())
+        }
     });
-    let child_stderr_task = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
-        let mut child_stderr = match child_stderr {
-            Some(child_stderr) => child_stderr,
-            None => {
-                return Ok(());
+    let child_stderr_task = tokio::task::spawn_blocking({
+        let lines_stderr = lines_stderr.clone();
+        move || -> anyhow::Result<_> {
+            let child_stderr = match child_stderr {
+                Some(child_stderr) => child_stderr,
+                None => {
+                    return Ok(());
+                }
+            };
+            let child_stderr = std::io::BufReader::new(child_stderr);
+
+            let stderr = std::io::stderr();
+            let mut stderr = stderr.lock();
+            for line in child_stderr.split(b'\n') {
+                let line = line?;
+                let line = String::from_utf8_lossy(&line);
+
+                lines_stderr.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                writeln!(stderr, "{}", line)?;
             }
-        };
 
-        let stderr = std::io::stderr();
-        let mut stderr = stderr.lock();
-        std::io::copy(&mut child_stderr, &mut stderr)?;
-
-        Ok(())
+            Ok(())
+        }
     });
 
     let (child_task, child_stdin_task, child_stdout_task, child_stderr_task) = tokio::try_join!(
@@ -174,6 +199,14 @@ pub async fn get_baked_recipe(
     let prefix_path = state
         .save_recipe_output(&recipe_ref, &recipe_prefix.host_output_path)
         .await?;
+
+    let lines_stdout = lines_stdout.load(std::sync::atomic::Ordering::SeqCst);
+    let lines_stderr = lines_stderr.load(std::sync::atomic::Ordering::SeqCst);
+    let recipe_aux = crate::state::RecipeAux {
+        lines_stdout,
+        lines_stderr,
+    };
+    state.set_recipe_aux(recipe_ref, recipe_aux).await;
 
     match state.persist_lockfile().await? {
         true => {

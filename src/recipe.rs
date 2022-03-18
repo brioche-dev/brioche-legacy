@@ -114,7 +114,9 @@ pub struct RecipeBuildScript {
     pub env_vars: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 #[serde(transparent)]
 pub struct ResolvedRecipeRef {
     hash: Hash,

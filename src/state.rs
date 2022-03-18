@@ -383,6 +383,21 @@ impl State {
 
         Ok(recipe_prefix_dir)
     }
+
+    // pub async fn get_recipe_aux(
+    //     &self,
+    //     recipe_ref: &crate::recipe::ResolvedRecipeRef,
+    // ) -> Option<RecipeAux> {
+    //     self.lockfile.recipe_aux(recipe_ref).await
+    // }
+
+    pub async fn set_recipe_aux(
+        &self,
+        recipe_ref: &crate::recipe::ResolvedRecipeRef,
+        recipe_aux: RecipeAux,
+    ) {
+        self.lockfile.set_recipe_aux(recipe_ref, recipe_aux).await;
+    }
 }
 
 pub struct GitCheckoutRequest {
@@ -500,6 +515,17 @@ impl Lockfile {
         repo_commits.insert(git_ref.to_string(), commit.to_string());
     }
 
+    // async fn recipe_aux(&self, recipe_ref: &ResolvedRecipeRef) -> Option<RecipeAux> {
+    //     let lock = self.current_value.read().await;
+    //     let recipe_aux = lock.recipe_aux.get(recipe_ref);
+    //     recipe_aux.cloned()
+    // }
+
+    async fn set_recipe_aux(&self, recipe_ref: &ResolvedRecipeRef, recipe_aux: RecipeAux) {
+        let mut lock = self.current_value.write().await;
+        lock.recipe_aux.insert(*recipe_ref, recipe_aux);
+    }
+
     async fn persist(&self) -> anyhow::Result<bool> {
         let mut persisted_value = self.persisted_value.write().await;
         let current_value = self.current_value.read().await;
@@ -523,4 +549,11 @@ impl Lockfile {
 struct ContentLock {
     request_hashes: HashMap<Url, Hash>,
     git_commits: HashMap<Url, HashMap<String, String>>,
+    recipe_aux: HashMap<ResolvedRecipeRef, RecipeAux>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RecipeAux {
+    pub lines_stdout: u64,
+    pub lines_stderr: u64,
 }
