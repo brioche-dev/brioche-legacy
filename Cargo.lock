@@ -1031,8 +1031,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "052dae717f91183bee044637a6ed5070b8e8504e50fd4f3e489d4ba132f014cf"
+source = "git+https://github.com/DelSkayn/rquickjs#abbd9c3ef139f983351bc7d6b8df16d97d2892a7"
 dependencies = [
  "rquickjs-core",
  "rquickjs-macro",
@@ -1041,8 +1040,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb480004c1950ad7ad9cca17d31465151c805af93ffcef1f75721002b14d4b15"
+source = "git+https://github.com/DelSkayn/rquickjs#abbd9c3ef139f983351bc7d6b8df16d97d2892a7"
 dependencies = [
  "relative-path",
  "rquickjs-sys",
@@ -1051,8 +1049,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "480c6038ae02f5a89db99de2219b818ebe132a12eb8055b4040505ceebf33a7d"
+source = "git+https://github.com/DelSkayn/rquickjs#abbd9c3ef139f983351bc7d6b8df16d97d2892a7"
 dependencies = [
  "darling",
  "fnv",
@@ -1069,8 +1066,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9db0df426984adedeb77e8e5e33e7fb221417ccb64397194ee878b1bb1766ee2"
+source = "git+https://github.com/DelSkayn/rquickjs#abbd9c3ef139f983351bc7d6b8df16d97d2892a7"
 dependencies = [
  "bindgen",
  "cc",
