@@ -8,29 +8,31 @@ repository = "https://github.com/brioche-dev/brioche"
 license = "MIT"
 
 [dependencies]
-anyhow = "1.0.54"
+anyhow = "1.0.58"
 async-recursion = "1.0.0"
 cjson = "0.1.2"
-clap = { version = "3.1.0", features = ["derive"] }
+clap = { version = "3.2.8", features = ["derive"] }
 directories = "4.0.1"
 futures-util = "0.3.21"
 hex = "0.4.3"
 hex-literal = "0.3.4"
 joinery = "2.1.0"
-libmount = "0.1.15"
-nix = "0.23.1"
-reqwest = { version = "0.11.9", default-features =  false, features = ["rustls-tls", "stream"] }
+libmount = { git = "https://github.com/brioche-dev/libmount.git" }
+nix = "0.24.1"
+reqwest = { version = "0.11.11", default-features = false, features = ["rustls-tls", "stream"] }
 rquickjs = { git = "https://github.com/DelSkayn/rquickjs", features = ["bindgen", "loader", "macro"] }
-serde = "1.0.136"
-serde_json = "1.0.79"
-serde_with = { version = "1.12.0", features = ["hex"] }
+serde = "1.0.138"
+serde_json = "1.0.82"
+serde_with = { version = "1.14.0", features = ["hex"] }
 sha2 = "0.10.2"
-target-lexicon = "0.12.3"
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-util = { version = "0.7.0", features = ["io"] }
+smallvec = { version = "1.8.0", features = ["union", "const_generics"] }
+target-lexicon = "0.12.4"
+thiserror = "1.0.30"
+tokio = { version = "1.19.2", features = ["full"] }
+tokio-util = { version = "0.7.3", features = ["io"] }
 unshare = { git = "https://github.com/brioche-dev/unshare.git" }
 url = { version = "2.2.2", features = ["serde"] }
-uuid = { version = "0.8.2", features = ["v4"] }
-which = "4.2.4"
+uuid = { version = "1.1.2", features = ["v4"] }
+which = "4.2.5"
 
 [features]
